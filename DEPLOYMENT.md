@@ -8,7 +8,16 @@ The existing project is `attendance-db` and branch `production`. Use the Neon Co
 
 The FastAPI app creates SQLAlchemy model tables on startup and initializes the production administrator only when `INITIAL_ADMIN_PASSWORD` is set. It intentionally does not add demo employee/attendance data in production. For future schema changes, manage migrations as versioned migration files and test them on a Neon branch before production.
 
-The repository's backend is a Python/SQLAlchemy app and currently contains no `neon.ts`. Neon CLI `neon init`/ `neon deploy` is unnecessary for this current architecture unless you separately choose to declare and deploy Neon-specific services (Functions, Auth, Object Storage, etc.). Do not declare a fictitious `postgres` service in `neon.ts`; PostgreSQL is the existing database resource, connected through `DATABASE_URL`.
+The app itself is Python/SQLAlchemy, so the runtime connects with Psycopg 3 through `DATABASE_URL`; it does not use a JavaScript database driver. Neon's current CLI can still manage the existing project and pull connection variables into a local env file. From the repository root, the requested CLI setup is:
+
+```powershell
+npm i -g neon@latest
+# If the global install fails, use npx neon@latest for the following commands.
+neon init -y --org-id org-weathered-fog-15264694 --project-id fragrant-rice-79052333 --branch production --services postgres
+neon deploy
+```
+
+These commands require an authenticated Neon CLI session. If sign-in is requested, finish it in the browser; if the sign-in times out or fails, run `neon login` and retry. The Neon CLI config is provisioning/developer tooling; the FastAPI backend still reads `DATABASE_URL` from its environment. Do not commit `.env` or `.env.local`. Neon's `postgres` service is the existing Postgres capability, not a Node database driver dependency for this Python application.
 
 ## Render backend
 
