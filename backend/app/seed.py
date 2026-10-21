@@ -14,8 +14,8 @@ def seed_database():
 
     db: Session = SessionLocal()
     try:
-        # Production starts with only an explicitly provisioned administrator.
-        # Never reset an existing admin password during application restarts.
+        # Production may initialize the administrator only from secret environment
+        # configuration. Existing administrator credentials are never overwritten.
         if settings.ENVIRONMENT == "production":
             admin_username = os.getenv("INITIAL_ADMIN_USERNAME", "admin").strip() or "admin"
             admin_email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@expandit.com").strip().lower()
@@ -29,25 +29,22 @@ def seed_database():
                     account_status="ACTIVE",
                 )
                 db.add(admin)
-                db.commit()
                 print("Initial administrator created from environment configuration.")
             elif admin is None:
                 print("No administrator created: set INITIAL_ADMIN_PASSWORD securely in the service environment.")
-            db.commit()
-            return
-
-        # Development/test bootstrap remains compatible with the documented local setup.
-        admin = db.query(User).filter(User.username == "admin").first()
-        if not admin:
-            admin = User(
-                username="admin",
-                email="admin@expandit.com",
-                password_hash=get_password_hash("Sia_Sandeep@2010"),
-                role="ADMIN",
-                account_status="ACTIVE"
-            )
-            db.add(admin)
-            db.flush()
+        else:
+            # Development/test bootstrap retains a local-only convenience account.
+            admin = db.query(User).filter(User.username == "admin").first()
+            if not admin:
+                admin = User(
+                    username="admin",
+                    email="admin@expandit.com",
+                    password_hash=get_password_hash("Sia_Sandeep@2010"),
+                    role="ADMIN",
+                    account_status="ACTIVE"
+                )
+                db.add(admin)
+                db.flush()
 
         # 2. Work Schedules
         schedule_standard = db.query(WorkSchedule).filter(WorkSchedule.schedule_name == "Standard Corporate Shift").first()
@@ -77,6 +74,13 @@ def seed_database():
         for h_date, desc, h_type in holidays_data:
             if not db.query(Holiday).filter(Holiday.holiday_date == h_date).first():
                 db.add(Holiday(holiday_date=h_date, description=desc, holiday_type=h_type))
+
+        # Production needs schedules and holidays, but must not fabricate employees,
+        # attendance history, or leave requests for an actual company.
+        if settings.ENVIRONMENT == "production":
+            db.commit()
+            print("Production reference data initialized; demo records were skipped.")
+            return
 
         # 4. Sample Employees
         sample_employees = [
