@@ -1,0 +1,32 @@
+# Python & Virtual Environments
+.venv/
+venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.coverage
+htmlcov/
+
+# Secrets & Environment Variables
+.env
+*.env.local
+*.pem
+*.key
+
+# Local Private Storage / Uploads
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+
+# Node & Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.oxlintrc.json
+frontend/tsconfig.app.tsbuildinfo
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
