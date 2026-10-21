@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
@@ -33,24 +34,27 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
+# CORS: explicitly list deployed frontend origins through ALLOWED_ORIGINS.
+# Development localhost origins are retained only outside production.
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
-origins = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-]
 if allowed_origins_env:
-    origins.extend([o.strip() for o in allowed_origins_env.split(",") if o.strip()])
+    origins = [origin.strip().rstrip("/") for origin in allowed_origins_env.split(",") if origin.strip()]
+elif settings.ENVIRONMENT == "production":
+    origins = []
+else:
+    origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"https://.*" if not allowed_origins_env else None,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 # Mount logo directory for branding access
@@ -73,8 +77,18 @@ app.include_router(schedules.router)
 
 @app.get("/api/health")
 def health_check():
+    """Liveness and database connectivity check for Render health monitoring."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "database": "unavailable"},
+        )
     return {
         "status": "healthy",
+        "database": "connected",
         "system": "Expandit Attendance Management System",
         "company": settings.COMPANY_NAME,
         "timezone": settings.COMPANY_TIMEZONE
