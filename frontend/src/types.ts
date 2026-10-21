@@ -28,6 +28,7 @@ export interface Employee {
   department: string;
   designation: string;
   date_of_joining: string;
+  date_of_exit?: string;
   employment_status: string;
   account_status: string;
   token_secret: string;
@@ -113,6 +114,14 @@ export interface PortalInfo {
   assigned_schedule: string;
   schedule_start: string;
   schedule_end: string;
+  is_holiday?: boolean;
+  holiday_name?: string;
+  is_weekly_off?: boolean;
+  off_day_name?: string;
+  monthly_hours_worked?: number;
+  monthly_target_hours?: number;
+  has_achievement_badge?: boolean;
+  achievement_title?: string;
   today_record?: {
     id: number;
     status: string;
@@ -123,8 +132,16 @@ export interface PortalInfo {
     is_checked_out: boolean;
     duration?: number;
     is_late: boolean;
+    description?: string;
   };
   recent_records: Array<{
+    date: string;
+    status: string;
+    check_in: string;
+    check_out: string;
+    duration: number;
+  }>;
+  month_records?: Array<{
     date: string;
     status: string;
     check_in: string;

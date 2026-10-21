@@ -18,15 +18,33 @@ export const ReportsSection: React.FC = () => {
     new Date(new Date().setDate(1)).toISOString().split('T')[0]
   );
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [downloading, setDownloading] = useState<'EXCEL' | 'CSV' | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const handleDownloadExcel = () => {
-    const url = api.getCompanyExcelUrl(startDate, endDate, department);
-    window.open(url, '_blank');
+  const handleDownloadExcel = async () => {
+    try {
+      setDownloading('EXCEL');
+      setDownloadError(null);
+      const url = api.getCompanyExcelUrl(startDate, endDate, department);
+      await api.downloadFile(url, `Expandit_Attendance_Report_${startDate}_to_${endDate}.xlsx`);
+    } catch (err: any) {
+      setDownloadError(err.message || 'Failed to download Excel report');
+    } finally {
+      setDownloading(null);
+    }
   };
 
-  const handleDownloadCsv = () => {
-    const url = api.getCompanyCsvUrl(startDate, endDate, department);
-    window.open(url, '_blank');
+  const handleDownloadCsv = async () => {
+    try {
+      setDownloading('CSV');
+      setDownloadError(null);
+      const url = api.getCompanyCsvUrl(startDate, endDate, department);
+      await api.downloadFile(url, `Expandit_Attendance_${startDate}_to_${endDate}.csv`);
+    } catch (err: any) {
+      setDownloadError(err.message || 'Failed to download CSV report');
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (
@@ -127,22 +145,31 @@ export const ReportsSection: React.FC = () => {
             </span>
           </div>
 
+          {/* Download Error Alert */}
+          {downloadError && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+              {downloadError}
+            </div>
+          )}
+
           {/* Action Download Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-3">
             <button
               onClick={handleDownloadExcel}
-              className="cursor-pointer flex-1 py-3 px-5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              disabled={downloading !== null}
+              className="cursor-pointer flex-1 py-3 px-5 rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <Download className="w-4 h-4" />
-              <span>Download Excel Workbook (.xlsx)</span>
+              <span>{downloading === 'EXCEL' ? 'Generating Excel...' : 'Download Excel Workbook (.xlsx)'}</span>
             </button>
 
             <button
               onClick={handleDownloadCsv}
-              className="cursor-pointer py-3 px-5 rounded-xl font-bold text-xs bg-[#16194F] hover:bg-[#1E2568] text-white shadow-md shadow-indigo-950/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              disabled={downloading !== null}
+              className="cursor-pointer py-3 px-5 rounded-xl font-bold text-xs bg-[#16194F] hover:bg-[#1E2568] disabled:opacity-60 text-white shadow-md shadow-indigo-950/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
             >
               <FileDown className="w-4 h-4 text-[#F5BE2C]" />
-              <span>Download CSV File (.csv)</span>
+              <span>{downloading === 'CSV' ? 'Generating CSV...' : 'Download CSV File (.csv)'}</span>
             </button>
           </div>
         </div>

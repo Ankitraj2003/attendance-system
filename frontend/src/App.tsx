@@ -24,7 +24,8 @@ export const App: React.FC = () => {
 
   // Portal view state
   const [showPortalModal, setShowPortalModal] = useState<boolean>(false);
-  const [portalToken, setPortalToken] = useState<string>('token_aarav_sharma_exp101_secure');
+  const [portalToken, setPortalToken] = useState<string>('');
+  const [isDirectPortalLink, setIsDirectPortalLink] = useState<boolean>(false);
 
   // Selected employee for individual dashboard
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('EXP-101');
@@ -32,10 +33,29 @@ export const App: React.FC = () => {
   // Real-time toast alert
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Check auth on load
+  // Check auth on load + handle ?token= deep-link for employees
   useEffect(() => {
-    const token = getAuthToken();
-    if (token) {
+    // Check for unique employee token in search (?token=...) or hash (#portal?token=...)
+    let urlToken = new URLSearchParams(window.location.search).get('token');
+    if (!urlToken && window.location.hash.includes('token=')) {
+      const qIndex = window.location.hash.indexOf('?');
+      if (qIndex !== -1) {
+        urlToken = new URLSearchParams(window.location.hash.substring(qIndex)).get('token');
+      } else {
+        urlToken = new URLSearchParams(window.location.hash.substring(1)).get('token');
+      }
+    }
+
+    if (urlToken) {
+      setPortalToken(urlToken);
+      setShowPortalModal(true);
+      setIsDirectPortalLink(true);
+      setLoadingAuth(false);
+      return;
+    }
+
+    const authToken = getAuthToken();
+    if (authToken) {
       api.getMe()
         .then((userData) => setUser(userData))
         .catch(() => removeAuthToken())
@@ -112,6 +132,15 @@ export const App: React.FC = () => {
         onSuccess={(userData) => setUser(userData)}
         onOpenPortal={() => setShowPortalModal(true)}
       />
+    );
+  }
+
+  // Direct employee portal link (no admin UI needed)
+  if (isDirectPortalLink && showPortalModal) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 py-6">
+        <AttendancePortal initialToken={portalToken} />
+      </div>
     );
   }
 

@@ -1,4 +1,4 @@
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('expandit_auth_token');
@@ -66,6 +66,13 @@ export const api = {
 
   async getMe() {
     return request<any>('/auth/me');
+  },
+
+  async changePassword(oldPassword: string, newPassword: string) {
+    return request<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+    });
   },
 
   // Portal Attendance
@@ -233,12 +240,27 @@ export const api = {
     return request<any[]>('/schedules/holidays');
   },
 
-  // Export URLs
+  async addHoliday(data: { holiday_date: string; description: string; holiday_type?: string }) {
+    return request<any>('/schedules/holidays', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async deleteHoliday(holidayId: number) {
+    return request<any>(`/schedules/holidays/${holidayId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Export URLs & Download Helpers
   getCompanyExcelUrl(startDate?: string, endDate?: string, department?: string) {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
     if (department) q.append('department', department);
+    const token = getAuthToken();
+    if (token) q.append('token', token);
     return `${BASE_URL}/reports/company/excel?${q.toString()}`;
   },
 
@@ -247,6 +269,8 @@ export const api = {
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
     if (department) q.append('department', department);
+    const token = getAuthToken();
+    if (token) q.append('token', token);
     return `${BASE_URL}/reports/company/csv?${q.toString()}`;
   },
 
@@ -254,6 +278,8 @@ export const api = {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
+    const token = getAuthToken();
+    if (token) q.append('token', token);
     return `${BASE_URL}/reports/employee/${employeeId}/excel?${q.toString()}`;
   },
 
@@ -261,10 +287,46 @@ export const api = {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
+    const token = getAuthToken();
+    if (token) q.append('token', token);
     return `${BASE_URL}/reports/employee/${employeeId}/csv?${q.toString()}`;
   },
 
+  async downloadFile(url: string, fallbackFilename?: string) {
+    const token = getAuthToken();
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(url, { headers });
+    if (!res.ok) {
+      let msg = 'Download failed';
+      try {
+        const data = await res.json();
+        msg = data.detail || msg;
+      } catch {
+        msg = res.statusText || msg;
+      }
+      throw new Error(msg);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition');
+    let filename = fallbackFilename || 'download';
+    if (disposition && disposition.includes('filename=')) {
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      if (match && match[1]) filename = match[1];
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  },
+
   getAttachmentDownloadUrl(attachmentId: number) {
-    return `${BASE_URL}/attachments/${attachmentId}/download`;
+    const token = getAuthToken();
+    return token
+      ? `${BASE_URL}/attachments/${attachmentId}/download?token=${encodeURIComponent(token)}`
+      : `${BASE_URL}/attachments/${attachmentId}/download`;
   }
 };

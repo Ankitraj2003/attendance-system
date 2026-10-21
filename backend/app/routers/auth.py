@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
-from app.schemas import Token, UserResponse
-from app.auth import verify_password, create_access_token, get_current_user
+from app.schemas import Token, UserResponse, ChangePasswordRequest
+from app.auth import verify_password, create_access_token, get_current_user, get_password_hash
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -39,3 +39,48 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not verify_password(payload.old_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    new_pwd = payload.new_password
+    if len(new_pwd) < 9:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 9 characters long"
+        )
+    if not any(c.isalpha() for c in new_pwd):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must contain at least one letter (a-z, A-Z)"
+        )
+    if not any(c.isdigit() for c in new_pwd):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must contain at least one number (0-9)"
+        )
+    if not any(not c.isalnum() for c in new_pwd):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must contain at least one special character (!@#$%^&*...)"
+        )
+
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User account not found"
+        )
+    user.password_hash = get_password_hash(new_pwd)
+    db.commit()
+    db.refresh(user)
+    return {"message": "Password changed successfully"}

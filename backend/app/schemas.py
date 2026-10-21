@@ -17,6 +17,10 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class ChangePasswordRequest(BaseModel):
+    old_password: str
+    new_password: str
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -28,8 +32,8 @@ class UserResponse(BaseModel):
 # Work Schedule
 class WorkScheduleBase(BaseModel):
     schedule_name: str
-    start_time: str
-    end_time: str
+    start_time: str = "10:00"
+    end_time: str = "19:00"
     working_days: str = "Monday,Tuesday,Wednesday,Thursday,Friday"
     late_arrival_threshold_minutes: int = 15
     minimum_hours_full_day: float = 8.0
@@ -50,6 +54,7 @@ class EmployeeBase(BaseModel):
     department: str
     designation: str
     date_of_joining: date
+    date_of_exit: Optional[date] = None
     employment_status: str = "FULL_TIME"
     account_status: str = "ACTIVE"
     weekly_off_days: str = "Saturday,Sunday"
@@ -66,6 +71,7 @@ class EmployeeUpdate(BaseModel):
     employment_status: Optional[str] = None
     account_status: Optional[str] = None
     weekly_off_days: Optional[str] = None
+    date_of_exit: Optional[date] = None
     assigned_schedule_id: Optional[int] = None
 
 class EmployeeResponse(EmployeeBase):
@@ -84,10 +90,19 @@ class EmployeePortalInfo(BaseModel):
     current_date: date
     server_time: str
     assigned_schedule: Optional[str] = None
-    schedule_start: str = "09:00"
-    schedule_end: str = "18:00"
+    schedule_start: str = "10:00"
+    schedule_end: str = "19:00"
+    is_holiday: bool = False
+    holiday_name: Optional[str] = None
+    is_weekly_off: bool = False
+    off_day_name: Optional[str] = None
+    monthly_hours_worked: float = 0.0
+    monthly_target_hours: float = 160.0
+    has_achievement_badge: bool = False
+    achievement_title: Optional[str] = None
     today_record: Optional[Dict[str, Any]] = None
     recent_records: List[Dict[str, Any]] = []
+    month_records: List[Dict[str, Any]] = []
 
 # Attendance
 class CheckInRequest(BaseModel):

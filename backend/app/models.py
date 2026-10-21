@@ -28,8 +28,8 @@ class WorkSchedule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     schedule_name = Column(String(100), unique=True, nullable=False)
-    start_time = Column(String(10), default="09:00", nullable=False) # HH:MM
-    end_time = Column(String(10), default="18:00", nullable=False)   # HH:MM
+    start_time = Column(String(10), default="10:00", nullable=False) # HH:MM (10:00 AM)
+    end_time = Column(String(10), default="19:00", nullable=False)   # HH:MM (07:00 PM)
     working_days = Column(String(255), default="Monday,Tuesday,Wednesday,Thursday,Friday", nullable=False)
     late_arrival_threshold_minutes = Column(Integer, default=15, nullable=False)
     minimum_hours_full_day = Column(Float, default=8.0, nullable=False)
@@ -52,6 +52,7 @@ class Employee(Base):
     department = Column(String(100), nullable=False, index=True)
     designation = Column(String(100), nullable=False)
     date_of_joining = Column(Date, nullable=False)
+    date_of_exit = Column(Date, nullable=True) # Automatically stamped when deactivated
     employment_status = Column(String(50), default="FULL_TIME", nullable=False) # FULL_TIME, PART_TIME, CONTRACT
     account_status = Column(String(50), default="ACTIVE", nullable=False) # ACTIVE, INACTIVE
     token_secret = Column(String(100), unique=True, index=True, nullable=False) # Reusable secure personal link

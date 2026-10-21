@@ -4,13 +4,11 @@ import {
   CheckCircle2,
   XCircle,
   FileDown,
-  Building,
   Filter,
-  Search,
   AlertCircle,
   X,
   Clock,
-  ExternalLink
+  ExternalLink,
 } from 'lucide-react';
 import { api } from '../api';
 import { LeaveRequest } from '../types';
@@ -28,6 +26,7 @@ export const LeaveManagementSection: React.FC = () => {
   const [remarks, setRemarks] = useState<string>('');
   const [processing, setProcessing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const fetchLeaves = async () => {
     try {
@@ -103,6 +102,15 @@ export const LeaveManagementSection: React.FC = () => {
           </select>
         </div>
       </div>
+
+      {/* Download error alert */}
+      {downloadError && (
+        <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{downloadError}</span>
+          <button onClick={() => setDownloadError(null)} className="ml-auto"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2">
@@ -188,10 +196,11 @@ export const LeaveManagementSection: React.FC = () => {
                         <a
                           href={api.getAttachmentDownloadUrl(l.attachments[0].id)}
                           target="_blank"
-                          rel="noreferrer"
-                          className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold hover:bg-amber-100 transition-colors"
+                          rel="noopener noreferrer"
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold hover:bg-amber-100 transition-colors shadow-2xs"
+                          title="Open uploaded medical/supporting document in new tab"
                         >
-                          <FileDown className="w-3.5 h-3.5 text-amber-700" />
+                          <ExternalLink className="w-3.5 h-3.5 text-amber-700" />
                           <span>View Doc</span>
                         </a>
                       ) : (

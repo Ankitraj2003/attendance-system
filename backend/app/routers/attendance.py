@@ -1,11 +1,12 @@
 from datetime import datetime, date, timezone
+import calendar
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
 from app.database import get_db
-from app.models import AttendanceRecord, Employee, User
+from app.models import AttendanceRecord, Employee, User, Holiday
 from app.schemas import (
     CheckInRequest, CheckOutRequest, ManualCorrectionRequest, 
     AttendanceRecordResponse, EmployeePortalInfo
@@ -24,6 +25,18 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
     curr_date, _ = get_current_company_date_and_time()
     tz = get_company_tz()
 
+    # 1. Holiday check for today
+    holiday = db.query(Holiday).filter(Holiday.holiday_date == curr_date).first()
+    is_holiday = holiday is not None
+    holiday_name = holiday.description if holiday else None
+
+    # 2. Weekly off check for today (Saturday & Sunday default)
+    weekly_offs = [w.strip().lower() for w in (employee.weekly_off_days or "Saturday,Sunday").split(",") if w.strip()]
+    day_name = curr_date.strftime("%A")
+    is_weekly_off = day_name.lower() in weekly_offs
+    off_day_name = day_name if is_weekly_off else None
+
+    # 3. Today's attendance record (if employee checked in or requested leave)
     today_rec = db.query(AttendanceRecord).filter(
         AttendanceRecord.employee_id == employee.employee_id,
         AttendanceRecord.attendance_date == curr_date
@@ -44,27 +57,81 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
             "duration": today_rec.recorded_working_duration,
             "is_late": today_rec.is_late
         }
+    else:
+        if is_holiday:
+            today_dict = {
+                "status": "HOLIDAY",
+                "is_checked_in": False,
+                "is_checked_out": False,
+                "description": f"Company Holiday: {holiday_name}"
+            }
+        elif is_weekly_off:
+            today_dict = {
+                "status": "WEEKLY_OFF",
+                "is_checked_in": False,
+                "is_checked_out": False,
+                "description": f"Weekly Off ({off_day_name})"
+            }
 
-    recent_recs = db.query(AttendanceRecord).filter(
+    # 4. Fetch 1-month records (entire current month up to today)
+    first_day_of_month = curr_date.replace(day=1)
+    month_recs = db.query(AttendanceRecord).filter(
+        AttendanceRecord.employee_id == employee.employee_id,
+        AttendanceRecord.attendance_date >= first_day_of_month,
+        AttendanceRecord.attendance_date <= curr_date
+    ).order_by(AttendanceRecord.attendance_date.desc()).all()
+
+    # Also keep a 7-day slice
+    recent_recs = month_recs[:7] if len(month_recs) >= 7 else db.query(AttendanceRecord).filter(
         AttendanceRecord.employee_id == employee.employee_id
     ).order_by(AttendanceRecord.attendance_date.desc()).limit(7).all()
 
-    recent_list = []
-    for r in recent_recs:
-        cin_s = r.check_in_timestamp.astimezone(tz).strftime("%I:%M %p") if r.check_in_timestamp else "-"
-        cout_s = r.check_out_timestamp.astimezone(tz).strftime("%I:%M %p") if r.check_out_timestamp else "-"
-        recent_list.append({
-            "date": r.attendance_date.isoformat(),
-            "status": r.attendance_classification,
-            "check_in": cin_s,
-            "check_out": cout_s,
-            "duration": r.recorded_working_duration or 0.0
-        })
+    def _fmt_recs(records):
+        out = []
+        for r in records:
+            cin_s = r.check_in_timestamp.astimezone(tz).strftime("%I:%M %p") if r.check_in_timestamp else "-"
+            cout_s = r.check_out_timestamp.astimezone(tz).strftime("%I:%M %p") if r.check_out_timestamp else "-"
+            out.append({
+                "date": r.attendance_date.isoformat(),
+                "status": r.attendance_classification,
+                "check_in": cin_s,
+                "check_out": cout_s,
+                "duration": r.recorded_working_duration or 0.0
+            })
+        return out
+
+    recent_list = _fmt_recs(recent_recs)
+    month_list = _fmt_recs(month_recs)
+
+    # 5. Monthly hours calculation & dynamic target
+    monthly_hours_worked = sum((r.recorded_working_duration or 0.0) for r in month_recs)
+    monthly_hours_worked = round(monthly_hours_worked, 1)
+
+    # Dynamic target: working_days = total_days - weekends - company holidays this month
+    year, month = curr_date.year, curr_date.month
+    total_days = calendar.monthrange(year, month)[1]
+    weekly_off_names = [w.strip().lower() for w in (employee.weekly_off_days or "Saturday,Sunday").split(",") if w.strip()]
+    off_days_count = sum(
+        1 for d in range(1, total_days + 1)
+        if date(year, month, d).strftime("%A").lower() in weekly_off_names
+    )
+    month_holidays_count = db.query(Holiday).filter(
+        Holiday.holiday_date >= date(year, month, 1),
+        Holiday.holiday_date <= date(year, month, total_days)
+    ).count()
+    working_days = total_days - off_days_count - month_holidays_count
+    target_hours = round(working_days * 8.0, 1)
+
+    has_achievement_badge = monthly_hours_worked >= target_hours and monthly_hours_worked > 0
+    achievement_title = (
+        f"Star Achiever: {monthly_hours_worked}/{target_hours} hrs Target Met!"
+        if has_achievement_badge else None
+    )
 
     sched = employee.schedule
-    sched_name = sched.schedule_name if sched else "Standard Shift"
-    start_t = sched.start_time if sched else "09:00"
-    end_t = sched.end_time if sched else "18:00"
+    sched_name = sched.schedule_name if sched else "Standard Corporate Shift"
+    start_t = sched.start_time if sched else "10:00"
+    end_t = sched.end_time if sched else "19:00"
 
     return {
         "employee_id": employee.employee_id,
@@ -77,8 +144,17 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
         "assigned_schedule": sched_name,
         "schedule_start": start_t,
         "schedule_end": end_t,
+        "is_holiday": is_holiday,
+        "holiday_name": holiday_name,
+        "is_weekly_off": is_weekly_off,
+        "off_day_name": off_day_name,
+        "monthly_hours_worked": monthly_hours_worked,
+        "monthly_target_hours": target_hours,
+        "has_achievement_badge": has_achievement_badge,
+        "achievement_title": achievement_title,
         "today_record": today_dict,
-        "recent_records": recent_list
+        "recent_records": recent_list,
+        "month_records": month_list
     }
 
 @router.post("/portal/{token}/check-in")

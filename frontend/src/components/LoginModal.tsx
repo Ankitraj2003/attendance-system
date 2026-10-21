@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Lock, User, ArrowRight, ShieldCheck, ExternalLink, Sparkles } from 'lucide-react';
+import { Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { api } from '../api';
 
 interface LoginModalProps {
   onSuccess: (userData: any) => void;
-  onOpenPortal: () => void;
+  onOpenPortal?: () => void;
 }
 
-export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onOpenPortal }) => {
-  const [username, setUsername] = useState<string>('admin');
-  const [password, setPassword] = useState<string>('Admin@1234');
+export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -43,7 +44,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onOpenPortal 
             className="h-16 w-auto object-contain mx-auto mb-3 drop-shadow-xs"
           />
           <h2 className="text-xl font-black text-[#16194F] tracking-tight">Expandit Enterprise Suite</h2>
-          <p className="text-xs text-slate-500 mt-1">Smart Attendance, Analytics & Leave Portal</p>
+          <p className="text-xs text-slate-500 mt-1">Administrator Portal &amp; Management Control</p>
         </div>
 
         {errorMsg && (
@@ -63,7 +64,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onOpenPortal 
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
+                placeholder="Enter username"
+                autoComplete="username"
                 className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-medium"
               />
             </div>
@@ -74,17 +76,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onOpenPortal 
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-medium"
+                placeholder="Enter password"
+                autoComplete="current-password"
+                className="glass-input w-full pl-10 pr-10 py-2.5 rounded-xl text-xs font-medium"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="cursor-pointer absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Default credentials: <code className="font-mono text-slate-600 font-bold">admin</code> / <code className="font-mono text-slate-600 font-bold">Admin@1234</code>
-            </p>
           </div>
 
           <button
@@ -96,18 +104,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess, onOpenPortal 
             <ArrowRight className="w-4 h-4 text-[#F5BE2C]" />
           </button>
         </form>
-
-        {/* Or Go to Employee Attendance Portal */}
-        <div className="mt-6 pt-5 border-t border-slate-200/60 text-center">
-          <p className="text-xs text-slate-500 mb-3">Are you an employee submitting attendance?</p>
-          <button
-            onClick={onOpenPortal}
-            className="cursor-pointer w-full py-2.5 rounded-xl font-bold text-xs bg-white/80 hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors flex items-center justify-center gap-2 shadow-2xs"
-          >
-            <ExternalLink className="w-4 h-4 text-[#00A3E0]" />
-            <span>Launch Employee Attendance Portal</span>
-          </button>
-        </div>
       </div>
     </div>
   );

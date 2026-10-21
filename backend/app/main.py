@@ -34,23 +34,27 @@ app = FastAPI(
 )
 
 # CORS configuration
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
 ]
+if allowed_origins_env:
+    origins.extend([o.strip() for o in allowed_origins_env.split(",") if o.strip()])
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*" if not allowed_origins_env else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Mount logo directory for branding access
-logo_dir = Path("D:/Attendance_system/logo")
+logo_dir = Path(__file__).resolve().parent.parent.parent / "logo"
 if logo_dir.exists():
     app.mount("/static/logo", StaticFiles(directory=str(logo_dir)), name="logo")
 

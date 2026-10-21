@@ -1,11 +1,11 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AttendanceAttachment, User
-from app.auth import get_current_admin
+from app.auth import get_current_admin_flexible
 
 router = APIRouter(prefix="/api/attachments", tags=["Attachments"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/attachments", tags=["Attachments"])
 def download_attachment(
     attachment_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin)
+    admin: User = Depends(get_current_admin_flexible),
 ):
     attachment = db.query(AttendanceAttachment).filter(AttendanceAttachment.id == attachment_id).first()
     if not attachment:
@@ -24,6 +24,7 @@ def download_attachment(
 
     return FileResponse(
         path=attachment.storage_path,
-        media_type=attachment.mime_type,
-        filename=attachment.original_filename
+        media_type=attachment.mime_type or "application/octet-stream",
+        filename=attachment.original_filename,
+        content_disposition_type="inline",
     )

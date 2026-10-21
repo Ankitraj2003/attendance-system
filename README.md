@@ -111,7 +111,7 @@ Frontend will be available at: **`http://localhost:5173`**
 ## 🔐 Default Administrator Credentials
 
 - **Username**: `admin`
-- **Password**: `Admin@1234`
+- **Password**: `Sandeep@2010`
 - **Role**: `ADMIN`
 
 ---

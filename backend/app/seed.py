@@ -20,21 +20,23 @@ def seed_database():
             admin = User(
                 username="admin",
                 email="admin@expandit.com",
-                password_hash=get_password_hash("Admin@1234"),
+                password_hash=get_password_hash("Sia_Sandeep@2010"),
                 role="ADMIN",
                 account_status="ACTIVE"
             )
             db.add(admin)
             db.flush()
-            print("Created default admin: admin / Admin@1234")
+        else:
+            admin.password_hash = get_password_hash("Sia_Sandeep@2010")
+            db.flush()
 
         # 2. Work Schedules
         schedule_standard = db.query(WorkSchedule).filter(WorkSchedule.schedule_name == "Standard Corporate Shift").first()
         if not schedule_standard:
             schedule_standard = WorkSchedule(
                 schedule_name="Standard Corporate Shift",
-                start_time="09:30",
-                end_time="18:30",
+                start_time="10:00",
+                end_time="19:00",
                 working_days="Monday,Tuesday,Wednesday,Thursday,Friday",
                 late_arrival_threshold_minutes=15,
                 minimum_hours_full_day=8.0,

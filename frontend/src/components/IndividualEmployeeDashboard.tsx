@@ -46,6 +46,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
   const [loading, setLoading] = useState<boolean>(true);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [exporting, setExporting] = useState<'EXCEL' | 'CSV' | null>(null);
 
   useEffect(() => {
     if (selectedEmployeeId) {
@@ -79,14 +80,28 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
     fetchDashboardData();
   }, [employeeId, startDate, endDate]);
 
-  const handleExportExcel = () => {
-    const url = api.getEmployeeExcelUrl(employeeId, startDate || undefined, endDate || undefined);
-    window.open(url, '_blank');
+  const handleExportExcel = async () => {
+    try {
+      setExporting('EXCEL');
+      const url = api.getEmployeeExcelUrl(employeeId, startDate || undefined, endDate || undefined);
+      await api.downloadFile(url, `Expandit_Attendance_${employeeId}.xlsx`);
+    } catch (err: any) {
+      alert(err.message || 'Export failed');
+    } finally {
+      setExporting(null);
+    }
   };
 
-  const handleExportCsv = () => {
-    const url = api.getEmployeeCsvUrl(employeeId, startDate || undefined, endDate || undefined);
-    window.open(url, '_blank');
+  const handleExportCsv = async () => {
+    try {
+      setExporting('CSV');
+      const url = api.getEmployeeCsvUrl(employeeId, startDate || undefined, endDate || undefined);
+      await api.downloadFile(url, `Expandit_Attendance_${employeeId}.csv`);
+    } catch (err: any) {
+      alert(err.message || 'Export failed');
+    } finally {
+      setExporting(null);
+    }
   };
 
   const formatIST = (timestamp?: string) => {
@@ -149,20 +164,22 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
 
           <button
             onClick={handleExportExcel}
-            className="cursor-pointer px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center gap-1.5"
+            disabled={exporting !== null}
+            className="cursor-pointer px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white shadow-xs transition-colors flex items-center gap-1.5"
             title="Download individual Excel report"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Export Excel</span>
+            <span>{exporting === 'EXCEL' ? 'Exporting...' : 'Export Excel'}</span>
           </button>
 
           <button
             onClick={handleExportCsv}
-            className="cursor-pointer px-3 py-2 rounded-xl text-xs font-semibold bg-white/80 hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs transition-colors flex items-center gap-1.5"
+            disabled={exporting !== null}
+            className="cursor-pointer px-3 py-2 rounded-xl text-xs font-semibold bg-white/80 hover:bg-slate-50 disabled:opacity-60 text-slate-700 border border-slate-200 shadow-2xs transition-colors flex items-center gap-1.5"
             title="Download individual CSV"
           >
             <FileDown className="w-3.5 h-3.5" />
-            <span>CSV</span>
+            <span>{exporting === 'CSV' ? 'Exporting...' : 'CSV'}</span>
           </button>
         </div>
       </div>

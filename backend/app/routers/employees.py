@@ -112,6 +112,10 @@ def toggle_employee_status(
 
     new_status = "INACTIVE" if emp.account_status == "ACTIVE" else "ACTIVE"
     emp.account_status = new_status
+    if new_status == "INACTIVE":
+        emp.date_of_exit = date.today()
+    else:
+        emp.date_of_exit = None
 
     audit = AuditLog(
         actor=admin.username,
@@ -119,12 +123,16 @@ def toggle_employee_status(
         action="EMPLOYEE_STATUS_CHANGE",
         entity_type="EMPLOYEE",
         entity_id=employee_id,
-        reason=f"Changed account status to {new_status}"
+        reason=f"Changed account status to {new_status} (exit date set to {emp.date_of_exit if new_status == 'INACTIVE' else 'cleared'})"
     )
     db.add(audit)
     db.commit()
 
-    return {"message": f"Employee {emp.name} is now {new_status}", "account_status": new_status}
+    return {
+        "message": f"Employee {emp.name} is now {new_status}",
+        "account_status": new_status,
+        "date_of_exit": emp.date_of_exit.isoformat() if emp.date_of_exit else None
+    }
 
 @router.post("/{employee_id}/regenerate-token")
 def regenerate_attendance_token(

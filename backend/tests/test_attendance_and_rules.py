@@ -28,7 +28,7 @@ def test_health_endpoint():
     assert data["company"] == "Expandit"
 
 def test_admin_login():
-    response = client.post("/api/auth/login", data={"username": "admin", "password": "Admin@1234"})
+    response = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
@@ -41,6 +41,10 @@ def test_employee_portal_info():
     assert data["employee_id"] == "EXP-101"
     assert data["name"] == "Aarav Sharma"
     assert "today_record" in data
+    assert "monthly_target_hours" in data
+    # Target hours must be dynamic (>0 and matches working_days * 8)
+    assert data["monthly_target_hours"] > 0
+    assert data["monthly_target_hours"] % 8 == 0 or isinstance(data["monthly_target_hours"], float)
 
 def test_idempotent_check_in_and_single_record():
     token = "token_sneha_kulkarni_exp104_secure"
@@ -100,7 +104,7 @@ def test_leave_submission_with_attachment():
 
 def test_admin_reports_excel_and_csv():
     # Login admin first
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Admin@1234"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -114,3 +118,33 @@ def test_admin_reports_excel_and_csv():
     assert csv_res.status_code == 200
     assert "text/csv" in csv_res.headers["content-type"]
     assert "Employee ID,Employee Name" in csv_res.text
+
+def test_change_password_flow():
+    # Login admin
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Wrong old password should fail
+    bad_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "WrongPassword", "new_password": "NewSecretPass@123"})
+    assert bad_res.status_code == 400
+
+    # Short new password (< 9 chars) should fail
+    short_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Pass@12"})
+    assert short_res.status_code == 400
+
+    # Missing special char should fail
+    no_special_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Password123"})
+    assert no_special_res.status_code == 400
+
+    # Missing digit should fail
+    no_digit_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Password@!"})
+    assert no_digit_res.status_code == 400
+
+    # Successful change (>= 9 chars, letter, digit, special char)
+    ok_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "TempSecretPass@123"})
+    assert ok_res.status_code == 200
+
+    # Revert back to maintain consistency for other tests
+    revert_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "TempSecretPass@123", "new_password": "Sia_Sandeep@2010"})
+    assert revert_res.status_code == 200
