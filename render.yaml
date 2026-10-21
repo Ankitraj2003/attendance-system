@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: expandit-attendance-api
+    runtime: python
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+      - key: INITIAL_ADMIN_USERNAME
+        value: admin
+      - key: INITIAL_ADMIN_EMAIL
+        value: admin@expandit.com
+      - key: COMPANY_NAME
+        value: Expandit
+      - key: COMPANY_TIMEZONE
+        value: Asia/Kolkata
+      - key: ALLOWED_ORIGINS
+        sync: false
