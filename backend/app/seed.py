@@ -14,7 +14,29 @@ def seed_database():
 
     db: Session = SessionLocal()
     try:
-        # 1. Admin User
+        # Production starts with only an explicitly provisioned administrator.
+        # Never reset an existing admin password during application restarts.
+        if settings.ENVIRONMENT == "production":
+            admin_username = os.getenv("INITIAL_ADMIN_USERNAME", "admin").strip() or "admin"
+            admin_email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@expandit.com").strip().lower()
+            admin = db.query(User).filter(User.username == admin_username).first()
+            if admin is None and settings.INITIAL_ADMIN_PASSWORD:
+                admin = User(
+                    username=admin_username,
+                    email=admin_email,
+                    password_hash=get_password_hash(settings.INITIAL_ADMIN_PASSWORD),
+                    role="ADMIN",
+                    account_status="ACTIVE",
+                )
+                db.add(admin)
+                db.commit()
+                print("Initial administrator created from environment configuration.")
+            elif admin is None:
+                print("No administrator created: set INITIAL_ADMIN_PASSWORD securely in the service environment.")
+            db.commit()
+            return
+
+        # Development/test bootstrap remains compatible with the documented local setup.
         admin = db.query(User).filter(User.username == "admin").first()
         if not admin:
             admin = User(
@@ -25,9 +47,6 @@ def seed_database():
                 account_status="ACTIVE"
             )
             db.add(admin)
-            db.flush()
-        else:
-            admin.password_hash = get_password_hash("Sia_Sandeep@2010")
             db.flush()
 
         # 2. Work Schedules
