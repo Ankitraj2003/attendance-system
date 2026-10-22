@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  X,
   LayoutDashboard,
   CalendarCheck,
   Users,
@@ -20,6 +21,8 @@ interface SidebarProps {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
   pendingLeavesCount?: number;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -28,6 +31,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   collapsed,
   setCollapsed,
   pendingLeavesCount = 0,
+  mobileOpen = false,
+  onCloseMobile
 }) => {
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
@@ -48,20 +53,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside
-      className={`relative z-30 transition-all duration-300 ease-in-out glass-panel border-r border-white/60 flex flex-col justify-between shrink-0 ${
-        collapsed ? 'w-20' : 'w-64'
-      }`}
-    >
-      {/* Top nav items */}
-      <div className="py-4 px-3 space-y-1.5">
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs md:hidden animate-fade-in"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside
+        className={`fixed md:relative inset-y-0 left-0 z-40 transition-all duration-300 ease-in-out glass-panel border-r border-white/60 flex flex-col justify-between shrink-0 ${
+          mobileOpen ? 'translate-x-0 w-64 shadow-2xl' : '-translate-x-full md:translate-x-0'
+        } ${collapsed ? 'md:w-20' : 'md:w-64'}`}
+      >
+        {/* Top nav items */}
+        <div className="py-4 px-3 space-y-1.5 overflow-y-auto">
+          {/* Mobile Header with Close button */}
+          <div className="flex md:hidden items-center justify-between pb-3 mb-2 border-b border-slate-200/60 px-1">
+            <div className="flex items-center space-x-2">
+              <img src="/logo.png" alt="Logo" className="h-7 w-auto object-contain" />
+              <span className="text-xs font-black text-[#16194F]">EXPANDIT</span>
+            </div>
+            <button
+              onClick={onCloseMobile}
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => { setActiveTab(item.id); if (onCloseMobile) onCloseMobile(); }}
               className={`cursor-pointer w-full flex items-center rounded-xl px-3 py-2.5 transition-all text-xs font-semibold group ${
                 isActive
                   ? 'bg-gradient-to-r from-[#16194F] to-[#1E2568] text-white shadow-md shadow-indigo-950/10'
@@ -112,5 +139,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
     </aside>
-  );
+    </>  );
 };

@@ -153,8 +153,8 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
   const hasBadge = Boolean(portalData?.has_achievement_badge);
 
   return (
-    <div className="max-w-3xl mx-auto py-4 px-4 sm:px-6">
-      <div className="glass-panel rounded-2xl p-6 mb-6 relative overflow-hidden border border-white/70 shadow-lg">
+    <div className="max-w-3xl mx-auto py-3 sm:py-4 px-3 sm:px-6">
+      <div className="glass-panel rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 relative overflow-hidden border border-white/70 shadow-lg">
         {onClose && (
           <button
             onClick={onClose}
@@ -237,7 +237,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
         ) : portalData ? (
           <>
             {/* Employee Profile Header */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-white/70 border border-white/80 shadow-2xs mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl bg-white/70 border border-white/80 shadow-2xs mb-4 sm:mb-6">
               <div>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Employee</span>
                 <span className="text-xs font-bold text-[#16194F] flex items-center gap-1 mt-0.5">
@@ -273,7 +273,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
 
             {/* Daily Attendance Action Box / Off-Day Banner */}
             {isOffDay ? (
-              <div className="glass-card rounded-2xl p-6 border border-white/90 shadow-sm text-center">
+              <div className="glass-card rounded-2xl p-4 sm:p-6 border border-white/90 shadow-sm text-center">
                 {isHoliday ? (
                   <div className="space-y-3">
                     <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center">
@@ -315,7 +315,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                 )}
               </div>
             ) : (
-              <div className="glass-card rounded-2xl p-6 border border-white/90 shadow-sm text-center">
+              <div className="glass-card rounded-2xl p-4 sm:p-6 border border-white/90 shadow-sm text-center">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold mb-4 bg-slate-100 text-slate-700 border border-slate-200">
                   <Clock className="w-3.5 h-3.5 text-amber-500" />
                   <span>Today's Record:</span>
@@ -507,8 +507,8 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
 
       {/* Leave Submission Modal */}
       {showLeaveModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="glass-panel w-full max-w-lg rounded-2xl p-6 border border-white/90 shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className="glass-panel w-full max-w-lg rounded-2xl p-4 sm:p-6 border border-white/90 shadow-2xl relative my-auto max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setShowLeaveModal(false)}
               className="cursor-pointer absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"

@@ -30,20 +30,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 relative overflow-y-auto">
       {/* Decorative ambient background glows */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-200/40 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-200/40 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="glass-panel w-full max-w-md rounded-3xl p-8 border border-white/90 shadow-2xl relative z-10">
+      <div className="glass-panel w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-white/90 shadow-2xl relative z-10 my-auto">
         {/* Branding Logo */}
         <div className="text-center mb-6">
           <img
             src="/logo.png"
             alt="Expandit Logo"
-            className="h-16 w-auto object-contain mx-auto mb-3 drop-shadow-xs"
+            className="h-12 sm:h-16 w-auto object-contain mx-auto mb-2 sm:mb-3 drop-shadow-xs"
           />
-          <h2 className="text-xl font-black text-[#16194F] tracking-tight">Expandit Attendance System</h2>
+          <h2 className="text-lg sm:text-xl font-black text-[#16194F] tracking-tight">Expandit Attendance System</h2>
           <p className="text-xs text-slate-500 mt-1">Administrator Portal &amp; Management Control</p>
         </div>
 

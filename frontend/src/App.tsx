@@ -19,6 +19,7 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [loadingAuth, setLoadingAuth] = useState<boolean>(true);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState<boolean>(false);
 
@@ -161,6 +162,8 @@ export const App: React.FC = () => {
         setActiveTab={setActiveTab}
         isRealtimeConnected={isRealtimeConnected}
         onOpenPortalModal={() => setShowPortalModal(true)}
+        isMobileMenuOpen={mobileMenuOpen}
+        onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -170,10 +173,12 @@ export const App: React.FC = () => {
           setActiveTab={setActiveTab}
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
+          mobileOpen={mobileMenuOpen}
+          onCloseMobile={() => setMobileMenuOpen(false)}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'overview' && (
               <OverviewSection

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock, Radio, LogOut, User as UserIcon, ExternalLink, KeyRound, X, CheckCircle2, AlertCircle, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Clock, Radio, LogOut, User as UserIcon, ExternalLink, KeyRound, X, CheckCircle2, AlertCircle, Eye, EyeOff, ShieldCheck, Menu } from 'lucide-react';
 import { User } from '../types';
 import { api, removeAuthToken } from '../api';
 
@@ -11,6 +11,8 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   isRealtimeConnected: boolean;
   onOpenPortalModal: () => void;
+  isMobileMenuOpen?: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -19,7 +21,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   isRealtimeConnected,
-  onOpenPortalModal
+  onOpenPortalModal,
+  isMobileMenuOpen = false,
+  onToggleMobileMenu
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
@@ -102,13 +106,22 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   return (
-    <header className="sticky top-0 z-40 glass-panel border-b border-white/60 px-6 py-3.5 flex items-center justify-between shadow-xs">
+    <header className="sticky top-0 z-40 glass-panel border-b border-white/60 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between shadow-xs">
       {/* Brand logo & title */}
-      <div className="flex items-center space-x-3.5">
+      <div className="flex items-center space-x-2 sm:space-x-3.5">
+        {user && onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            className="md:hidden cursor-pointer p-1.5 -ml-1 rounded-lg text-slate-600 hover:text-[#16194F] hover:bg-slate-100 transition-colors"
+            title="Toggle Menu"
+          >
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        )}
         <img
           src="/logo.png"
           alt="Expandit Logo"
-          className="h-10 w-auto object-contain rounded-md shadow-xs"
+          className="h-8 sm:h-10 w-auto object-contain rounded-md shadow-xs"
         />
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold tracking-tight text-[#16194F]">
@@ -150,7 +163,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           title="Open Employee Daily Attendance Portal"
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          <span>Attendance Portal</span>
+          <span className="hidden sm:inline">Attendance Portal</span>
+          <span className="sm:hidden text-[11px]">Portal</span>
         </button>
 
         {user && (
