@@ -28,8 +28,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Expandit Smart Employee Attendance System",
-    description="Enterprise attendance, real-time analytics, and leave management system",
+    title="Expandit Attendance System",
+    description="Attendance, analytics, and leave management system",
     version="1.0.0",
     lifespan=lifespan
 )

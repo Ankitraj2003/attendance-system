@@ -63,7 +63,7 @@ export const AnalyticsSection: React.FC = () => {
     return (
       <div className="py-20 text-center text-slate-400">
         <div className="animate-spin w-8 h-8 border-3 border-[#00A3E0] border-t-transparent rounded-full mx-auto mb-3"></div>
-        Synthesizing Enterprise Analytics & Insights...
+        Synthesizing Analytics & Insights...
       </div>
     );
   }

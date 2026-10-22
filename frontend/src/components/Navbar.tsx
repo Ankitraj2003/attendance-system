@@ -111,12 +111,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="h-10 w-auto object-contain rounded-md shadow-xs"
         />
         <div className="hidden sm:block">
-          <h1 className="text-lg font-bold tracking-tight text-[#16194F] flex items-center gap-1.5">
-            EXPANDIT <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-[#F5BE2C]/20 text-[#B45309] border border-[#F5BE2C]/40">Enterprise</span>
+          <h1 className="text-lg font-bold tracking-tight text-[#16194F]">
+            EXPANDIT
           </h1>
-          <p className="text-xs text-slate-500 font-medium -mt-0.5">
-            Smart Attendance, Real-Time Analytics & Leave Suite
-          </p>
         </div>
       </div>
 

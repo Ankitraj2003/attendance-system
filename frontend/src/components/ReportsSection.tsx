@@ -57,7 +57,7 @@ export const ReportsSection: React.FC = () => {
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#16194F] tracking-tight">
-              Enterprise Reports & Data Export Center
+              Reports & Data Export Center
             </h2>
             <p className="text-xs text-slate-500">
               Generate audited multi-sheet Excel workbooks and RFC-4180 CSV exports with formula injection safeguards

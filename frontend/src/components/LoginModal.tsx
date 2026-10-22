@@ -43,7 +43,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
             alt="Expandit Logo"
             className="h-16 w-auto object-contain mx-auto mb-3 drop-shadow-xs"
           />
-          <h2 className="text-xl font-black text-[#16194F] tracking-tight">Expandit Enterprise Suite</h2>
+          <h2 className="text-xl font-black text-[#16194F] tracking-tight">Expandit Attendance System</h2>
           <p className="text-xs text-slate-500 mt-1">Administrator Portal &amp; Management Control</p>
         </div>
 
