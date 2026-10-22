@@ -76,10 +76,7 @@ A production-ready, secure, and responsive Employee Attendance, Real-Time Analyt
 
 ### 1. Database Configuration
 The local PostgreSQL database `attendance_system` and user `attendance_user` are already provisioned.
-- **Database Name**: `attendance_system`
-- **User**: `attendance_user`
-- **Password**: `attendance_pass_2026`
-- **Connection String**: `postgresql+psycopg://attendance_user:attendance_pass_2026@localhost:5432/attendance_system`
+-
 
 ### 2. Starting the Backend Server
 Open a Windows PowerShell terminal:
