@@ -19,6 +19,9 @@ export const LeaveManagementSection: React.FC = () => {
   const [statusTab, setStatusTab] = useState<'PENDING' | 'ALL'>('PENDING');
   const [department, setDepartment] = useState<string>('ALL');
   const [leaveType, setLeaveType] = useState<string>('ALL');
+  const [departmentsList, setDepartmentsList] = useState<string[]>([
+    'Engineering', 'Product & Design', 'Marketing', 'Human Resources', 'Operations'
+  ]);
 
   // Decision Modal
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -27,6 +30,20 @@ export const LeaveManagementSection: React.FC = () => {
   const [processing, setProcessing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadDepts = async () => {
+      try {
+        const depts = await api.getDepartments();
+        if (depts && depts.length > 0) {
+          setDepartmentsList(depts.map((d: any) => d.name));
+        }
+      } catch (e) {
+        console.error('Failed to load departments', e);
+      }
+    };
+    loadDepts();
+  }, []);
 
   const fetchLeaves = async () => {
     try {
@@ -95,10 +112,9 @@ export const LeaveManagementSection: React.FC = () => {
             className="glass-input px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
           >
             <option value="ALL">All Departments</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Product & Design">Product & Design</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Human Resources">Human Resources</option>
+            {departmentsList.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
           </select>
         </div>
       </div>

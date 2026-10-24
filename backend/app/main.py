@@ -12,7 +12,7 @@ from app.database import Base, engine
 from app.seed import seed_database
 from app.routers import (
     auth, attendance, leaves, employees, 
-    analytics, reports, attachments, events, schedules
+    analytics, reports, attachments, events, schedules, departments
 )
 
 # Initialize tables
@@ -72,6 +72,7 @@ app.include_router(reports.router)
 app.include_router(attachments.router)
 app.include_router(events.router)
 app.include_router(schedules.router)
+app.include_router(departments.router)
 
 
 

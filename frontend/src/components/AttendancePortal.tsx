@@ -300,10 +300,10 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                     </div>
                     <div>
                       <span className="text-sm font-black text-[#16194F] block">
-                        Today is Weekend ({portalData.off_day_name} – Weekly Off)
+                        Today is {portalData.off_day_name} (Weekly Off)
                       </span>
                       <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                        Saturday and Sunday are scheduled corporate off-days. No check-in or work required today. Have a great weekend!
+                        Sunday is the scheduled corporate off-day. No check-in or work required today. Have a restful day off!
                       </p>
                     </div>
                     <div className="pt-2">

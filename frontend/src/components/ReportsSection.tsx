@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileSpreadsheet,
   FileDown,
@@ -14,6 +14,23 @@ import { api } from '../api';
 
 export const ReportsSection: React.FC = () => {
   const [department, setDepartment] = useState<string>('ALL');
+  const [departmentsList, setDepartmentsList] = useState<string[]>([
+    'Engineering', 'Product & Design', 'Marketing', 'Human Resources', 'Operations'
+  ]);
+
+  useEffect(() => {
+    const loadDepts = async () => {
+      try {
+        const depts = await api.getDepartments();
+        if (depts && depts.length > 0) {
+          setDepartmentsList(depts.map((d: any) => d.name));
+        }
+      } catch (e) {
+        console.error('Failed to load departments', e);
+      }
+    };
+    loadDepts();
+  }, []);
   const [startDate, setStartDate] = useState<string>(
     new Date(new Date().setDate(1)).toISOString().split('T')[0]
   );
@@ -86,10 +103,12 @@ export const ReportsSection: React.FC = () => {
               className="glass-input w-full px-3 py-2 rounded-xl font-medium text-slate-800 cursor-pointer"
             >
               <option value="ALL">Company-Wide (All Departments)</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Product & Design">Product & Design</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Human Resources">Human Resources</option>
+              {departmentsList.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+
+
+
             </select>
           </div>
 

@@ -12,7 +12,8 @@ import {
   Building,
   CheckCircle2,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Plus
 } from 'lucide-react';
 import { api } from '../api';
 import { AttendanceRecord } from '../types';
@@ -37,14 +38,68 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [missingOnly, setMissingOnly] = useState<boolean>(false);
+  const [departmentsList, setDepartmentsList] = useState<string[]>([
+    'Engineering', 'Product & Design', 'Marketing', 'Human Resources', 'Operations'
+  ]);
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
 
   // Manual Correction Modal State
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [correctClassification, setCorrectClassification] = useState<string>('PRESENT');
   const [correctDayType, setCorrectDayType] = useState<string>('FULL_DAY');
+  const [correctCheckInTime, setCorrectCheckInTime] = useState<string>('');
+  const [correctCheckOutTime, setCorrectCheckOutTime] = useState<string>('');
   const [correctReason, setCorrectReason] = useState<string>('');
   const [correcting, setCorrecting] = useState<boolean>(false);
   const [correctionMsg, setCorrectionMsg] = useState<string | null>(null);
+
+  // Manual Add Modal State
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [newEmployeeId, setNewEmployeeId] = useState<string>('');
+  const [newDate, setNewDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [newClassification, setNewClassification] = useState<string>('PRESENT');
+  const [newDayType, setNewDayType] = useState<string>('FULL_DAY');
+  const [newCheckInTime, setNewCheckInTime] = useState<string>('10:00');
+  const [newCheckOutTime, setNewCheckOutTime] = useState<string>('19:00');
+  const [newReason, setNewReason] = useState<string>('');
+  const [addingRecord, setAddingRecord] = useState<boolean>(false);
+  const [addMsg, setAddMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const [depts, emps] = await Promise.all([
+          api.getDepartments(),
+          api.getEmployees(),
+        ]);
+        if (depts && depts.length > 0) {
+          setDepartmentsList(depts.map((d: any) => d.name));
+        }
+        if (emps && emps.length > 0) {
+          setEmployeesList(emps);
+          if (!newEmployeeId) setNewEmployeeId(emps[0].employee_id);
+        }
+      } catch (err) {
+        console.error('Failed to load departments or employees metadata', err);
+      }
+    };
+    loadMetadata();
+  }, []);
+
+  const getLocalTimeString = (timestamp?: string) => {
+    if (!timestamp) return '';
+    try {
+      const d = new Date(timestamp);
+      return d.toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    } catch {
+      return '';
+    }
+  };
 
   const fetchRecords = async () => {
     try {
@@ -82,6 +137,8 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
     setEditingRecord(r);
     setCorrectClassification(r.attendance_classification);
     setCorrectDayType(r.day_type || 'FULL_DAY');
+    setCorrectCheckInTime(getLocalTimeString(r.check_in_timestamp));
+    setCorrectCheckOutTime(getLocalTimeString(r.check_out_timestamp));
     setCorrectReason('');
     setCorrectionMsg(null);
   };
@@ -95,6 +152,8 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
       await api.correctRecord(editingRecord.id, {
         attendance_classification: correctClassification,
         day_type: correctDayType,
+        check_in_time: correctCheckInTime || undefined,
+        check_out_time: correctCheckOutTime || undefined,
         reason: correctReason,
       });
       setEditingRecord(null);
@@ -103,6 +162,35 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
       setCorrectionMsg(err.message || 'Failed to update record');
     } finally {
       setCorrecting(false);
+    }
+  };
+
+  const handleSaveAddAttendance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmployeeId || !newDate || !newReason.trim()) {
+      setAddMsg('Please specify employee, date, and mandatory audit reason.');
+      return;
+    }
+
+    try {
+      setAddingRecord(true);
+      setAddMsg(null);
+      await api.addManualAttendance({
+        employee_id: newEmployeeId,
+        attendance_date: newDate,
+        attendance_classification: newClassification,
+        day_type: newDayType,
+        check_in_time: newClassification === 'ABSENT' ? undefined : (newCheckInTime || undefined),
+        check_out_time: newClassification === 'ABSENT' ? undefined : (newCheckOutTime || undefined),
+        reason: newReason,
+      });
+      setShowAddModal(false);
+      setNewReason('');
+      await fetchRecords();
+    } catch (err: any) {
+      setAddMsg(err.message || 'Failed to add manual attendance record');
+    } finally {
+      setAddingRecord(false);
     }
   };
 
@@ -152,10 +240,9 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
                 className="glass-input w-full px-3 py-2 rounded-xl text-xs cursor-pointer font-medium"
               >
                 <option value="ALL">All Departments</option>
-                <option value="Engineering">Engineering</option>
-                <option value="Product & Design">Product & Design</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Human Resources">Human Resources</option>
+                {departmentsList.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
               </select>
             </div>
 
@@ -249,16 +336,29 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
 
       {/* Main Attendance Records Table */}
       <div className="glass-panel rounded-2xl border border-white/80 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <h3 className="text-sm font-bold text-[#16194F]">Date-Wise Attendance Records</h3>
             <span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold bg-slate-100 text-slate-600">
               {total} Total Records
             </span>
           </div>
 
-          <div className="text-xs text-slate-500 font-medium">
-            Page {page} of {totalPages}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setShowAddModal(true);
+                setAddMsg(null);
+              }}
+              className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#16194F] hover:bg-[#1E2568] text-white shadow-xs transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Record</span>
+            </button>
+
+            <div className="text-xs text-slate-500 font-medium">
+              Page {page} of {totalPages}
+            </div>
           </div>
         </div>
 
@@ -455,6 +555,27 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Check-In Time</label>
+                  <input
+                    type="time"
+                    value={correctCheckInTime}
+                    onChange={(e) => setCorrectCheckInTime(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Check-Out Time</label>
+                  <input
+                    type="time"
+                    value={correctCheckOutTime}
+                    onChange={(e) => setCorrectCheckOutTime(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
                   Mandatory Correction Reason *
@@ -483,6 +604,144 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
                   className="cursor-pointer px-5 py-2 rounded-xl text-xs font-bold bg-[#16194F] hover:bg-[#1E2568] text-white shadow-xs"
                 >
                   {correcting ? 'Saving Audit...' : 'Confirm Correction'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Add Attendance Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="glass-panel w-full max-w-lg rounded-2xl p-6 border border-white/90 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="cursor-pointer absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-sm font-bold text-[#16194F] mb-1 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-emerald-600" />
+              <span>Add Attendance Record</span>
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Manually add or backfill an attendance record for an employee. An audit trail will be logged.
+            </p>
+
+            {addMsg && (
+              <div className="mb-4 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs">{addMsg}</div>
+            )}
+
+            <form onSubmit={handleSaveAddAttendance} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Select Employee *</label>
+                <select
+                  required
+                  value={newEmployeeId}
+                  onChange={(e) => setNewEmployeeId(e.target.value)}
+                  className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                >
+                  {employeesList.map((emp) => (
+                    <option key={emp.employee_id} value={emp.employee_id}>
+                      {emp.name} ({emp.employee_id}) — {emp.department}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Attendance Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Status Classification *</label>
+                  <select
+                    value={newClassification}
+                    onChange={(e) => setNewClassification(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                  >
+                    <option value="PRESENT">PRESENT</option>
+                    <option value="HALF_DAY">HALF_DAY</option>
+                    <option value="ABSENT">ABSENT</option>
+                    <option value="ON_LEAVE">ON_LEAVE</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Day Type</label>
+                  <select
+                    value={newDayType}
+                    onChange={(e) => setNewDayType(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                  >
+                    <option value="FULL_DAY">Full Day</option>
+                    <option value="HALF_DAY">Half Day</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Check-In Time</label>
+                  <input
+                    type="time"
+                    disabled={newClassification === 'ABSENT'}
+                    value={newCheckInTime}
+                    onChange={(e) => setNewCheckInTime(e.target.value)}
+                    className="glass-input w-full px-3 py-2 rounded-xl text-xs disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Check-Out Time</label>
+                <input
+                  type="time"
+                  disabled={newClassification === 'ABSENT'}
+                  value={newCheckOutTime}
+                  onChange={(e) => setNewCheckOutTime(e.target.value)}
+                  className="glass-input w-full px-3 py-2 rounded-xl text-xs disabled:opacity-50"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Mandatory Audit Reason *
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={newReason}
+                  onChange={(e) => setNewReason(e.target.value)}
+                  placeholder="Enter audit rationale (e.g. Employee card reader failure; manual attendance verified)..."
+                  className="glass-input w-full px-3 py-2 rounded-xl text-xs"
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingRecord}
+                  className="cursor-pointer px-5 py-2 rounded-xl text-xs font-bold bg-[#16194F] hover:bg-[#1E2568] text-white shadow-xs"
+                >
+                  {addingRecord ? 'Adding...' : 'Add Record'}
                 </button>
               </div>
             </form>

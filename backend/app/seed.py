@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine, Base
-from app.models import User, Employee, WorkSchedule, AttendanceRecord, LeaveRequest, AttendanceAttachment, Holiday, AuditLog
+from app.models import User, Employee, WorkSchedule, AttendanceRecord, LeaveRequest, AttendanceAttachment, Holiday, AuditLog, Department
 from app.auth import get_password_hash
 from app.config import settings
 
@@ -53,7 +53,7 @@ def seed_database():
                 schedule_name="Standard Corporate Shift",
                 start_time="10:00",
                 end_time="19:00",
-                working_days="Monday,Tuesday,Wednesday,Thursday,Friday",
+                working_days="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday",
                 late_arrival_threshold_minutes=15,
                 minimum_hours_full_day=8.0,
                 minimum_hours_half_day=4.0,
@@ -62,6 +62,23 @@ def seed_database():
             )
             db.add(schedule_standard)
             db.flush()
+
+        else:
+            schedule_standard.working_days = "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday"
+            db.flush()
+
+        # Seed default departments
+        default_depts = ["Engineering", "Marketing", "Operations", "Human Resources"]
+        for dept_name in default_depts:
+            if not db.query(Department).filter(Department.name == dept_name).first():
+                db.add(Department(name=dept_name))
+        db.flush()
+
+        # Migrate existing employees' weekly off to Sunday only
+        for existing_emp in db.query(Employee).all():
+            if existing_emp.weekly_off_days == "Saturday,Sunday" or not existing_emp.weekly_off_days:
+                existing_emp.weekly_off_days = "Sunday"
+        db.flush()
 
         # 3. Sample Holidays
         holidays_data = [
@@ -152,7 +169,7 @@ def seed_database():
                     account_status="ACTIVE",
                     token_secret=emp_info["token_secret"],
                     assigned_schedule_id=schedule_standard.id,
-                    weekly_off_days="Saturday,Sunday"
+                    weekly_off_days="Sunday"
                 )
                 db.add(emp)
                 db.flush()
@@ -165,7 +182,7 @@ def seed_database():
         for offset in range(14, 0, -1):
             day_date = today - timedelta(days=offset)
             # Skip weekends for standard work
-            if day_date.strftime("%A") in ["Saturday", "Sunday"]:
+            if day_date.strftime("%A") == "Sunday":
                 continue
 
             for emp in created_emps:

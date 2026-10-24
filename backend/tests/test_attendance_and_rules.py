@@ -148,3 +148,67 @@ def test_change_password_flow():
     # Revert back to maintain consistency for other tests
     revert_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "TempSecretPass@123", "new_password": "Sia_Sandeep@2010"})
     assert revert_res.status_code == 200
+
+def test_departments_crud():
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Get departments
+    get_res = client.get("/api/departments", headers=headers)
+    assert get_res.status_code == 200
+    depts = get_res.json()
+    assert len(depts) >= 4
+
+    # Create new department
+    dept_name = "DevOps & Cloud Engineering"
+    create_res = client.post("/api/departments", headers=headers, json={"name": dept_name})
+    assert create_res.status_code in [200, 201]
+    assert create_res.json()["name"] == dept_name
+
+def test_employee_update():
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Update employee EXP-101
+    update_res = client.put(
+        "/api/employees/EXP-101",
+        headers=headers,
+        json={"name": "Aarav Sharma Updated", "designation": "Staff Engineer"}
+    )
+    assert update_res.status_code == 200
+    assert update_res.json()["name"] == "Aarav Sharma Updated"
+    assert update_res.json()["designation"] == "Staff Engineer"
+
+    # Revert back
+    client.put(
+        "/api/employees/EXP-101",
+        headers=headers,
+        json={"name": "Aarav Sharma", "designation": "Lead Full-Stack Engineer"}
+    )
+
+def test_manual_attendance_add_and_correct():
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Add manual attendance
+    add_res = client.post(
+        "/api/attendance/records/manual-add",
+        headers=headers,
+        json={
+            "employee_id": "EXP-101",
+            "attendance_date": "2026-05-10",
+            "attendance_classification": "PRESENT",
+            "day_type": "FULL_DAY",
+            "check_in_time": "10:15",
+            "check_out_time": "19:15",
+            "reason": "Card reader malfunction on May 10; manual addition"
+        }
+    )
+    assert add_res.status_code == 200
+    record = add_res.json()
+    assert record["employee_id"] == "EXP-101"
+    assert record["is_manually_corrected"] is True
+    assert record["correction_reason"] == "Card reader malfunction on May 10; manual addition"

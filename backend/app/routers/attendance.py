@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import AttendanceRecord, Employee, User, Holiday
 from app.schemas import (
     CheckInRequest, CheckOutRequest, ManualCorrectionRequest, 
-    AttendanceRecordResponse, EmployeePortalInfo
+    AttendanceRecordResponse, EmployeePortalInfo, ManualAddAttendanceRequest
 )
 from app.auth import get_employee_by_token, get_current_admin
 from app.services.attendance_service import (
@@ -30,8 +30,8 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
     is_holiday = holiday is not None
     holiday_name = holiday.description if holiday else None
 
-    # 2. Weekly off check for today (Saturday & Sunday default)
-    weekly_offs = [w.strip().lower() for w in (employee.weekly_off_days or "Saturday,Sunday").split(",") if w.strip()]
+    # 2. Weekly off check for today (Sunday default)
+    weekly_offs = [w.strip().lower() for w in (employee.weekly_off_days or "Sunday").split(",") if w.strip()]
     day_name = curr_date.strftime("%A")
     is_weekly_off = day_name.lower() in weekly_offs
     off_day_name = day_name if is_weekly_off else None
@@ -110,7 +110,7 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
     # Dynamic target: working_days = total_days - weekends - company holidays this month
     year, month = curr_date.year, curr_date.month
     total_days = calendar.monthrange(year, month)[1]
-    weekly_off_names = [w.strip().lower() for w in (employee.weekly_off_days or "Saturday,Sunday").split(",") if w.strip()]
+    weekly_off_names = [w.strip().lower() for w in (employee.weekly_off_days or "Sunday").split(",") if w.strip()]
     off_days_count = sum(
         1 for d in range(1, total_days + 1)
         if date(year, month, d).strftime("%A").lower() in weekly_off_names
@@ -292,6 +292,28 @@ async def manual_correction(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin)
 ):
+    rec = db.query(AttendanceRecord).filter(AttendanceRecord.id == record_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="Attendance record not found")
+
+    tz = get_company_tz()
+    check_in_dt = payload.check_in_timestamp
+    check_out_dt = payload.check_out_timestamp
+
+    if payload.check_in_time and ":" in payload.check_in_time:
+        try:
+            h, m = map(int, payload.check_in_time.split(":")[:2])
+            check_in_dt = datetime(rec.attendance_date.year, rec.attendance_date.month, rec.attendance_date.day, h, m, tzinfo=tz)
+        except Exception:
+            pass
+
+    if payload.check_out_time and ":" in payload.check_out_time:
+        try:
+            h, m = map(int, payload.check_out_time.split(":")[:2])
+            check_out_dt = datetime(rec.attendance_date.year, rec.attendance_date.month, rec.attendance_date.day, h, m, tzinfo=tz)
+        except Exception:
+            pass
+
     corrected = AttendanceService.manual_correction(
         db=db,
         record_id=record_id,
@@ -299,8 +321,8 @@ async def manual_correction(
         user_id=admin.id,
         classification=payload.attendance_classification,
         day_type=payload.day_type,
-        check_in=payload.check_in_timestamp,
-        check_out=payload.check_out_timestamp,
+        check_in=check_in_dt,
+        check_out=check_out_dt,
         reason=payload.reason
     )
 
@@ -313,4 +335,34 @@ async def manual_correction(
     return {
         "message": "Record corrected successfully and audit trail logged",
         "record_id": corrected.id
+    }
+
+@router.post("/records/manual-add")
+async def manual_add_record(
+    payload: ManualAddAttendanceRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    record = AttendanceService.add_manual_attendance(
+        db=db,
+        employee_id=payload.employee_id,
+        attendance_date=payload.attendance_date,
+        classification=payload.attendance_classification,
+        day_type=payload.day_type,
+        check_in_time=payload.check_in_time,
+        check_out_time=payload.check_out_time,
+        reason=payload.reason,
+        admin_actor=admin.username,
+        user_id=admin.id
+    )
+
+    await broadcaster.broadcast("RECORD_ADDED", {
+        "record_id": record.id,
+        "employee_id": record.employee_id,
+        "admin": admin.username
+    })
+
+    return {
+        "message": "Manual attendance record created successfully",
+        "record_id": record.id
     }

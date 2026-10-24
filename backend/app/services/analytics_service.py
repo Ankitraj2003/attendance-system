@@ -315,7 +315,7 @@ class AnalyticsService:
         end_d = date(year, month, num_days)
 
         emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
-        weekly_offs = [w.strip() for w in (emp.weekly_off_days if emp else "Saturday,Sunday").split(",")]
+        weekly_offs = [w.strip() for w in (emp.weekly_off_days if emp else "Sunday").split(",") if w.strip()]
 
         # Holidays in this month
         holidays = {

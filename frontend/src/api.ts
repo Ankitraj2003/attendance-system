@@ -119,6 +119,13 @@ export const api = {
     });
   },
 
+  async addManualAttendance(data: any) {
+    return request<any>('/attendance/records/manual-add', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
   // Employees
   async getEmployees(department?: string, statusFilter?: string) {
     const q = new URLSearchParams();
@@ -158,6 +165,18 @@ export const api = {
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
     return request<any>(`/employees/${employeeId}/dashboard?${q.toString()}`);
+  },
+
+  // Departments
+  async getDepartments() {
+    return request<{ id: number; name: string }[]>('/departments');
+  },
+
+  async createDepartment(name: string) {
+    return request<{ id: number; name: string }>('/departments', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
   },
 
   // Leaves

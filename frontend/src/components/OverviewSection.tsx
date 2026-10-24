@@ -50,6 +50,9 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   const [exceptions, setExceptions] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
+  const [departmentsList, setDepartmentsList] = useState<string[]>([
+    'Engineering', 'Product & Design', 'Marketing', 'Human Resources', 'Operations'
+  ]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchData = async () => {
@@ -76,6 +79,20 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   useEffect(() => {
     fetchData();
   }, [selectedDept]);
+
+  useEffect(() => {
+    const loadDepts = async () => {
+      try {
+        const depts = await api.getDepartments();
+        if (depts && depts.length > 0) {
+          setDepartmentsList(depts.map((d: any) => d.name));
+        }
+      } catch (e) {
+        console.error('Failed to load departments', e);
+      }
+    };
+    loadDepts();
+  }, []);
 
   if (loading || !kpiData) {
     return (
@@ -220,10 +237,12 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               className="glass-input px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
             >
               <option value="ALL">All Departments</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Product & Design">Product & Design</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Human Resources">Human Resources</option>
+              {departmentsList.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+
+
+
             </select>
           </div>
 

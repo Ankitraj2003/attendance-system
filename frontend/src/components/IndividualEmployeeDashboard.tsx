@@ -304,6 +304,12 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
                 </div>
               ))}
 
+              {data.calendar && data.calendar.length > 0 && Array.from({
+                length: new Date(data.calendar[0].date + 'T00:00:00').getDay()
+              }).map((_, i) => (
+                <div key={`empty-cell-${i}`} className="rounded-xl p-2.5 border border-transparent bg-transparent" />
+              ))}
+
               {data.calendar.map((c) => {
                 let badgeClass = 'bg-slate-50 text-slate-400 border-slate-200';
                 if (c.status === 'PRESENT') badgeClass = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold';

@@ -34,7 +34,7 @@ class WorkScheduleBase(BaseModel):
     schedule_name: str
     start_time: str = "10:00"
     end_time: str = "19:00"
-    working_days: str = "Monday,Tuesday,Wednesday,Thursday,Friday"
+    working_days: str = "Monday,Tuesday,Wednesday,Thursday,Friday,Saturday"
     late_arrival_threshold_minutes: int = 15
     minimum_hours_full_day: float = 8.0
     minimum_hours_half_day: float = 4.0
@@ -57,7 +57,7 @@ class EmployeeBase(BaseModel):
     date_of_exit: Optional[date] = None
     employment_status: str = "FULL_TIME"
     account_status: str = "ACTIVE"
-    weekly_off_days: str = "Saturday,Sunday"
+    weekly_off_days: str = "Sunday"
     assigned_schedule_id: Optional[int] = None
 
 class EmployeeCreate(EmployeeBase):
@@ -68,6 +68,7 @@ class EmployeeUpdate(BaseModel):
     work_email: Optional[EmailStr] = None
     department: Optional[str] = None
     designation: Optional[str] = None
+    date_of_joining: Optional[date] = None
     employment_status: Optional[str] = None
     account_status: Optional[str] = None
     weekly_off_days: Optional[str] = None
@@ -117,7 +118,27 @@ class ManualCorrectionRequest(BaseModel):
     day_type: Optional[str] = None
     check_in_timestamp: Optional[datetime] = None
     check_out_timestamp: Optional[datetime] = None
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
     reason: str
+
+class ManualAddAttendanceRequest(BaseModel):
+    employee_id: str
+    attendance_date: date
+    attendance_classification: str = "PRESENT"
+    day_type: str = "FULL_DAY"
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
+    reason: str
+
+class DepartmentCreate(BaseModel):
+    name: str
+
+class DepartmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    created_at: datetime
 
 class AttendanceRecordResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

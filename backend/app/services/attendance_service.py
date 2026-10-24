@@ -153,6 +153,96 @@ class AttendanceService:
         return record
 
     @staticmethod
+    def add_manual_attendance(
+        db: Session,
+        employee_id: str,
+        attendance_date: date,
+        classification: str,
+        day_type: str,
+        check_in_time: Optional[str],
+        check_out_time: Optional[str],
+        reason: str,
+        admin_actor: str,
+        user_id: int
+    ) -> AttendanceRecord:
+        emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+        tz = get_company_tz()
+        check_in_dt = None
+        check_out_dt = None
+
+        if check_in_time and ":" in check_in_time:
+            h, m = map(int, check_in_time.split(":")[:2])
+            check_in_dt = datetime(attendance_date.year, attendance_date.month, attendance_date.day, h, m, tzinfo=tz)
+
+        if check_out_time and ":" in check_out_time:
+            h, m = map(int, check_out_time.split(":")[:2])
+            check_out_dt = datetime(attendance_date.year, attendance_date.month, attendance_date.day, h, m, tzinfo=tz)
+
+        record = db.query(AttendanceRecord).filter(
+            AttendanceRecord.employee_id == employee_id,
+            AttendanceRecord.attendance_date == attendance_date
+        ).first()
+
+        duration = 0.0
+        if check_in_dt and check_out_dt:
+            duration = calculate_working_hours(check_in_dt, check_out_dt)
+
+        is_late = check_lateness(check_in_dt, emp.schedule) if check_in_dt else False
+
+        if record:
+            record.attendance_classification = classification
+            record.day_type = day_type
+            if check_in_dt:
+                record.check_in_timestamp = check_in_dt
+            if check_out_dt:
+                record.check_out_timestamp = check_out_dt
+            if check_in_dt and check_out_dt:
+                record.recorded_working_duration = duration
+            record.is_late = is_late
+            record.is_incomplete = bool(record.check_in_timestamp and not record.check_out_timestamp)
+            record.is_manually_corrected = True
+            record.correction_reason = reason
+            record.corrected_by_user_id = user_id
+        else:
+            record = AttendanceRecord(
+                employee_id=employee_id,
+                attendance_date=attendance_date,
+                attendance_classification=classification,
+                day_type=day_type,
+                check_in_timestamp=check_in_dt,
+                check_out_timestamp=check_out_dt,
+                recorded_working_duration=duration,
+                is_late=is_late,
+                is_incomplete=bool(check_in_dt and not check_out_dt),
+                is_manually_corrected=True,
+                correction_reason=reason,
+                corrected_by_user_id=user_id
+            )
+            db.add(record)
+
+        audit = AuditLog(
+            actor=admin_actor,
+            actor_role="ADMIN",
+            action="MANUAL_ATTENDANCE_ENTRY",
+            entity_type="ATTENDANCE_RECORD",
+            entity_id=f"{employee_id}_{attendance_date}",
+            after_values=json.dumps({
+                "employee_id": employee_id,
+                "date": attendance_date.isoformat(),
+                "status": classification,
+                "duration": duration
+            }),
+            reason=reason
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(record)
+        return record
+
+    @staticmethod
     def get_today_status(db: Session, employee_id: str) -> Optional[AttendanceRecord]:
         current_date, _ = get_current_company_date_and_time()
         return db.query(AttendanceRecord).filter(
@@ -225,6 +315,96 @@ class AttendanceService:
             after_values=json.dumps(after_state),
             reason=reason,
             ip_address=ip
+        )
+        db.add(audit)
+        db.commit()
+        db.refresh(record)
+        return record
+
+    @staticmethod
+    def add_manual_attendance(
+        db: Session,
+        employee_id: str,
+        attendance_date: date,
+        classification: str,
+        day_type: str,
+        check_in_time: Optional[str],
+        check_out_time: Optional[str],
+        reason: str,
+        admin_actor: str,
+        user_id: int
+    ) -> AttendanceRecord:
+        emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+        tz = get_company_tz()
+        check_in_dt = None
+        check_out_dt = None
+
+        if check_in_time and ":" in check_in_time:
+            h, m = map(int, check_in_time.split(":")[:2])
+            check_in_dt = datetime(attendance_date.year, attendance_date.month, attendance_date.day, h, m, tzinfo=tz)
+
+        if check_out_time and ":" in check_out_time:
+            h, m = map(int, check_out_time.split(":")[:2])
+            check_out_dt = datetime(attendance_date.year, attendance_date.month, attendance_date.day, h, m, tzinfo=tz)
+
+        record = db.query(AttendanceRecord).filter(
+            AttendanceRecord.employee_id == employee_id,
+            AttendanceRecord.attendance_date == attendance_date
+        ).first()
+
+        duration = 0.0
+        if check_in_dt and check_out_dt:
+            duration = calculate_working_hours(check_in_dt, check_out_dt)
+
+        is_late = check_lateness(check_in_dt, emp.schedule) if check_in_dt else False
+
+        if record:
+            record.attendance_classification = classification
+            record.day_type = day_type
+            if check_in_dt:
+                record.check_in_timestamp = check_in_dt
+            if check_out_dt:
+                record.check_out_timestamp = check_out_dt
+            if check_in_dt and check_out_dt:
+                record.recorded_working_duration = duration
+            record.is_late = is_late
+            record.is_incomplete = bool(record.check_in_timestamp and not record.check_out_timestamp)
+            record.is_manually_corrected = True
+            record.correction_reason = reason
+            record.corrected_by_user_id = user_id
+        else:
+            record = AttendanceRecord(
+                employee_id=employee_id,
+                attendance_date=attendance_date,
+                attendance_classification=classification,
+                day_type=day_type,
+                check_in_timestamp=check_in_dt,
+                check_out_timestamp=check_out_dt,
+                recorded_working_duration=duration,
+                is_late=is_late,
+                is_incomplete=bool(check_in_dt and not check_out_dt),
+                is_manually_corrected=True,
+                correction_reason=reason,
+                corrected_by_user_id=user_id
+            )
+            db.add(record)
+
+        audit = AuditLog(
+            actor=admin_actor,
+            actor_role="ADMIN",
+            action="MANUAL_ATTENDANCE_ENTRY",
+            entity_type="ATTENDANCE_RECORD",
+            entity_id=f"{employee_id}_{attendance_date}",
+            after_values=json.dumps({
+                "employee_id": employee_id,
+                "date": attendance_date.isoformat(),
+                "status": classification,
+                "duration": duration
+            }),
+            reason=reason
         )
         db.add(audit)
         db.commit()

@@ -30,7 +30,7 @@ class WorkSchedule(Base):
     schedule_name = Column(String(100), unique=True, nullable=False)
     start_time = Column(String(10), default="10:00", nullable=False) # HH:MM (10:00 AM)
     end_time = Column(String(10), default="19:00", nullable=False)   # HH:MM (07:00 PM)
-    working_days = Column(String(255), default="Monday,Tuesday,Wednesday,Thursday,Friday", nullable=False)
+    working_days = Column(String(255), default="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday", nullable=False)
     late_arrival_threshold_minutes = Column(Integer, default=15, nullable=False)
     minimum_hours_full_day = Column(Float, default=8.0, nullable=False)
     minimum_hours_half_day = Column(Float, default=4.0, nullable=False)
@@ -57,7 +57,7 @@ class Employee(Base):
     account_status = Column(String(50), default="ACTIVE", nullable=False) # ACTIVE, INACTIVE
     token_secret = Column(String(100), unique=True, index=True, nullable=False) # Reusable secure personal link
     assigned_schedule_id = Column(Integer, ForeignKey("work_schedules.id", ondelete="SET NULL"), nullable=True)
-    weekly_off_days = Column(String(100), default="Saturday,Sunday", nullable=False)
+    weekly_off_days = Column(String(100), default="Sunday", nullable=False)
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -175,3 +175,10 @@ class AuditLog(Base):
     reason = Column(Text, nullable=True)
     ip_address = Column(String(100), nullable=True)
     timestamp = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+class Department(Base):
+    __tablename__ = "departments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
