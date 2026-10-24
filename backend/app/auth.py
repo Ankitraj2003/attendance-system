@@ -67,7 +67,10 @@ def get_current_user(
         )
     
     token_version = payload.get("token_version")
-    if token_version is not None and token_version != getattr(user, "token_version", 1):
+    current_token_version = getattr(user, "token_version", 1) or 1
+    # Reject legacy tokens that lack a version claim; otherwise they could bypass
+    # session invalidation after a password change or administrator reset.
+    if token_version is None or token_version != current_token_version:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session has expired or credentials have been changed. Please log in again.",
@@ -120,7 +123,10 @@ def get_current_admin_flexible(
             headers={"WWW-Authenticate": "Bearer"},
         )
     token_version = payload.get("token_version")
-    if token_version is not None and token_version != getattr(user, "token_version", 1):
+    current_token_version = getattr(user, "token_version", 1) or 1
+    # Reject legacy tokens that lack a version claim; otherwise they could bypass
+    # session invalidation after a password change or administrator reset.
+    if token_version is None or token_version != current_token_version:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session has expired or credentials have been changed. Please log in again.",
