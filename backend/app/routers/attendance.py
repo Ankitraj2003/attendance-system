@@ -36,13 +36,48 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
     is_weekly_off = day_name.lower() in weekly_offs
     off_day_name = day_name if is_weekly_off else None
 
-    # Check if employee has an approved leave for today
+    # 1. Check if employee has an approved leave for today
     approved_leave = db.query(LeaveRequest).filter(
         LeaveRequest.employee_id == employee.employee_id,
         LeaveRequest.status == "APPROVED",
         LeaveRequest.start_date <= curr_date,
         LeaveRequest.end_date >= curr_date
     ).first()
+
+    # 2. Check if employee has a rejected leave request specifically for today (for that day only)
+    rejected_leave_today = db.query(LeaveRequest).filter(
+        LeaveRequest.employee_id == employee.employee_id,
+        LeaveRequest.status == "REJECTED",
+        LeaveRequest.start_date <= curr_date,
+        LeaveRequest.end_date >= curr_date
+    ).order_by(LeaveRequest.review_timestamp.desc(), LeaveRequest.id.desc()).first()
+
+    # 3. Check if employee has any pending leave request (active until approved or rejected)
+    pending_leave = db.query(LeaveRequest).filter(
+        LeaveRequest.employee_id == employee.employee_id,
+        LeaveRequest.status == "PENDING"
+    ).order_by(LeaveRequest.created_at.desc()).first()
+
+    is_rejected_leave_today = rejected_leave_today is not None
+    rejected_leave_msg = None
+    rejected_leave_reason = None
+    if is_rejected_leave_today:
+        reason_suffix = f" (Remark: {rejected_leave_today.rejection_reason})" if rejected_leave_today.rejection_reason else ""
+        rejected_leave_msg = f"Your leave request for today ({rejected_leave_today.leave_type}) was rejected{reason_suffix}. Please proceed with regular check-in and attendance."
+        rejected_leave_reason = rejected_leave_today.rejection_reason
+
+    has_pending = pending_leave is not None
+    pending_msg = None
+    pending_details = None
+    if has_pending:
+        pending_msg = f"Your leave request ({pending_leave.leave_type}) from {pending_leave.start_date} to {pending_leave.end_date} is under review and pending administrator approval."
+        pending_details = {
+            "id": pending_leave.id,
+            "leave_type": pending_leave.leave_type,
+            "start_date": str(pending_leave.start_date),
+            "end_date": str(pending_leave.end_date),
+            "reason": pending_leave.reason
+        }
 
     # 3. Today's attendance record (if employee checked in or requested leave)
     today_rec = db.query(AttendanceRecord).filter(
@@ -177,6 +212,12 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
         "off_day_name": off_day_name,
         "is_approved_leave": is_on_approved_leave,
         "approved_leave_type": approved_leave.leave_type if approved_leave else ("LEAVE" if is_on_approved_leave else None),
+        "is_rejected_leave_today": is_rejected_leave_today,
+        "rejected_leave_message": rejected_leave_msg,
+        "rejected_leave_reason": rejected_leave_reason,
+        "has_pending_leave": has_pending,
+        "pending_leave_message": pending_msg,
+        "pending_leave_details": pending_details,
         "monthly_hours_worked": monthly_hours_worked,
         "monthly_target_hours": target_hours,
         "has_achievement_badge": has_achievement_badge,

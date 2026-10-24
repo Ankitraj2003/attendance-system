@@ -120,6 +120,18 @@ export interface PortalInfo {
   off_day_name?: string;
   is_approved_leave?: boolean;
   approved_leave_type?: string;
+  is_rejected_leave_today?: boolean;
+  rejected_leave_message?: string;
+  rejected_leave_reason?: string;
+  has_pending_leave?: boolean;
+  pending_leave_message?: string;
+  pending_leave_details?: {
+    id: number;
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    reason?: string;
+  };
   monthly_hours_worked?: number;
   monthly_target_hours?: number;
   has_achievement_badge?: boolean;

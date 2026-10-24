@@ -354,3 +354,103 @@ def test_rejected_leave_remains_as_it_is(db_session):
         AttendanceRecord.attendance_date == future_date
     ).first()
     assert rec is None, "Rejected leave should not leave pre-marked absence records"
+
+
+def test_pending_leave_message_until_decision(db_session):
+    emp = db_session.query(Employee).filter(Employee.employee_id == "EXP-104").first()
+    token = emp.token_secret
+    future_start = date.today() + timedelta(days=10)
+    future_end = date.today() + timedelta(days=12)
+
+    fake_pdf = io.BytesIO(b"%PDF-1.4 sample content for automated test")
+    upload = UploadFile(filename="trip.pdf", file=fake_pdf)
+    from app.services.leave_service import LeaveService
+    leave_req = LeaveService.create_leave_request(
+        db=db_session,
+        employee=emp,
+        leave_type="PL",
+        start_date=future_start,
+        end_date=future_end,
+        reason="Annual vacation",
+        attachment_file=upload
+    )
+
+    # 1. While PENDING, portal shows pending message and details
+    portal_res = client.get(f"/api/attendance/portal/{token}")
+    assert portal_res.status_code == 200
+    data = portal_res.json()
+    assert data["has_pending_leave"] is True
+    assert "under review" in data["pending_leave_message"].lower()
+    assert data["pending_leave_details"]["leave_type"] == "PL"
+
+    # 2. Once decided (e.g. APPROVED), pending flag clears
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    LeaveService.process_decision(
+        db=db_session,
+        request_id=leave_req.id,
+        admin_user=admin,
+        status_choice="APPROVED"
+    )
+    portal_res2 = client.get(f"/api/attendance/portal/{token}")
+    data2 = portal_res2.json()
+    assert data2["has_pending_leave"] is False
+
+
+def test_rejected_leave_message_shows_for_that_day_only(db_session):
+    emp = db_session.query(Employee).filter(Employee.employee_id == "EXP-101").first()
+    token = emp.token_secret
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    fake_pdf = io.BytesIO(b"%PDF-1.4 sample content for automated test")
+    upload = UploadFile(filename="doc.pdf", file=fake_pdf)
+    from app.services.leave_service import LeaveService
+    
+    # Leave for yesterday (already passed)
+    past_leave = LeaveService.create_leave_request(
+        db=db_session,
+        employee=emp,
+        leave_type="CL",
+        start_date=yesterday,
+        end_date=yesterday,
+        reason="Errand yesterday",
+        attachment_file=upload
+    )
+    LeaveService.process_decision(
+        db=db_session,
+        request_id=past_leave.id,
+        admin_user=admin,
+        status_choice="REJECTED",
+        rejection_reason="Applied late"
+    )
+
+    # Yesterday's rejected leave must NOT trigger today's rejected banner
+    res_past = client.get(f"/api/attendance/portal/{token}")
+    assert res_past.json()["is_rejected_leave_today"] is False
+
+    # Now create rejected leave for TODAY
+    upload2 = UploadFile(filename="doc2.pdf", file=io.BytesIO(b"%PDF-1.4 content"))
+    today_leave = LeaveService.create_leave_request(
+        db=db_session,
+        employee=emp,
+        leave_type="CL",
+        start_date=today,
+        end_date=today,
+        reason="Urgent chore",
+        attachment_file=upload2
+    )
+    LeaveService.process_decision(
+        db=db_session,
+        request_id=today_leave.id,
+        admin_user=admin,
+        status_choice="REJECTED",
+        rejection_reason="High workload today"
+    )
+
+    # Today's rejected leave MUST show for today
+    res_today = client.get(f"/api/attendance/portal/{token}")
+    data_today = res_today.json()
+    assert data_today["is_rejected_leave_today"] is True
+    assert "rejected" in data_today["rejected_leave_message"].lower()
+    assert data_today["rejected_leave_reason"] == "High workload today"

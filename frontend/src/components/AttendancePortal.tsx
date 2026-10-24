@@ -240,6 +240,66 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
           </div>
         ) : portalData ? (
           <>
+            {/* Pending Leave Banner (visible until approved or rejected) */}
+            {portalData.has_pending_leave && (
+              <div className="mb-4 p-4 rounded-2xl bg-amber-50/95 border border-amber-300 text-amber-950 shadow-sm flex items-start gap-3 animate-fade-in">
+                <div className="p-2 rounded-xl bg-amber-200/80 text-amber-900 shrink-0 mt-0.5">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-amber-950">
+                      Leave Request Under Review (Pending)
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-200 text-amber-900 border border-amber-400">
+                      Pending Approval
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900 mt-1">
+                    {portalData.pending_leave_message ||
+                      'Your leave application is currently under review by management and remains pending until approved or rejected.'}
+                  </p>
+                  {portalData.pending_leave_details && (
+                    <div className="mt-2 text-[11px] font-medium text-amber-950/90 flex flex-wrap gap-x-4 gap-y-1 bg-white/60 p-2 rounded-lg border border-amber-200">
+                      <span>Type: <strong>{portalData.pending_leave_details.leave_type}</strong></span>
+                      <span>Period: <strong>{portalData.pending_leave_details.start_date} to {portalData.pending_leave_details.end_date}</strong></span>
+                      {portalData.pending_leave_details.reason && (
+                        <span>Reason: <em>"{portalData.pending_leave_details.reason}"</em></span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Rejected Leave for Today Banner (visible on that day only) */}
+            {portalData.is_rejected_leave_today && (
+              <div className="mb-4 p-4 rounded-2xl bg-rose-50/95 border border-rose-300 text-rose-950 shadow-sm flex items-start gap-3 animate-fade-in">
+                <div className="p-2 rounded-xl bg-rose-200/80 text-rose-900 shrink-0 mt-0.5">
+                  <AlertCircle className="w-5 h-5 text-rose-700" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-rose-950">
+                      Your Leave Request for Today was Rejected
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-200 text-rose-900 border border-rose-400">
+                      Rejected
+                    </span>
+                  </div>
+                  <p className="text-xs text-rose-900 mt-1">
+                    {portalData.rejected_leave_message ||
+                      'Your leave application for today was rejected by management. Please record your attendance and proceed with your regular workday.'}
+                  </p>
+                  {portalData.rejected_leave_reason && (
+                    <p className="text-[11px] text-rose-950 font-semibold mt-1 bg-white/70 p-2 rounded-lg border border-rose-200">
+                      Management Remark: {portalData.rejected_leave_reason}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Employee Profile Header */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl bg-white/70 border border-white/80 shadow-2xs mb-4 sm:mb-6">
               <div>

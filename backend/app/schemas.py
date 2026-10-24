@@ -99,6 +99,12 @@ class EmployeePortalInfo(BaseModel):
     off_day_name: Optional[str] = None
     is_approved_leave: bool = False
     approved_leave_type: Optional[str] = None
+    is_rejected_leave_today: bool = False
+    rejected_leave_message: Optional[str] = None
+    rejected_leave_reason: Optional[str] = None
+    has_pending_leave: bool = False
+    pending_leave_message: Optional[str] = None
+    pending_leave_details: Optional[Dict[str, Any]] = None
     monthly_hours_worked: float = 0.0
     monthly_target_hours: float = 160.0
     has_achievement_badge: bool = False
