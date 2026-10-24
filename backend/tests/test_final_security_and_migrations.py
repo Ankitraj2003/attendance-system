@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.config import settings
 from app.database import Base, get_db
-from app.models import User, Employee, WorkSchedule
+from app.models import User, Employee, WorkSchedule, AttendanceRecord
 from app.auth import get_password_hash, create_access_token
 from update_schema import apply_schema_ddl, apply_reference_data, apply_safe_backfills
 
@@ -265,3 +265,92 @@ def test_migration_idempotent_when_token_version_already_exists():
         inspector = inspect(conn)
         user_cols = {c["name"] for c in inspector.get_columns("users")}
         assert "token_version" in user_cols
+
+
+# ==============================================================================
+# 4. Leave Approval Attendance Waiving & Rejection Safety Tests
+# ==============================================================================
+
+import io
+from fastapi import UploadFile
+
+def test_approved_leave_waives_checkin_checkout(db_session):
+    token = "token_aarav_sharma_exp101_secure"
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    emp = db_session.query(Employee).filter(Employee.employee_id == "EXP-101").first()
+
+    today = date.today()
+
+    # Create and approve a leave request for today
+    fake_pdf = io.BytesIO(b"%PDF-1.4 sample content for automated test")
+    upload = UploadFile(filename="medical.pdf", file=fake_pdf)
+    from app.services.leave_service import LeaveService
+    leave_req = LeaveService.create_leave_request(
+        db=db_session,
+        employee=emp,
+        leave_type="SL",
+        start_date=today,
+        end_date=today,
+        reason="Doctor prescribed medical rest",
+        attachment_file=upload
+    )
+    # Admin approves the leave
+    LeaveService.process_decision(
+        db=db_session,
+        request_id=leave_req.id,
+        admin_user=admin,
+        status_choice="APPROVED",
+        remarks="Approved by management"
+    )
+
+    # 1. Portal reflects approved leave
+    portal_res = client.get(f"/api/attendance/portal/{token}")
+    assert portal_res.status_code == 200
+    p_data = portal_res.json()
+    assert p_data["is_approved_leave"] is True
+    assert p_data["today_record"]["status"] == "ON_LEAVE"
+
+    # 2. Check-in attempt is rejected with 400
+    cin_res = client.post(f"/api/attendance/portal/{token}/check-in", json={"day_type": "FULL_DAY"})
+    assert cin_res.status_code == 400
+    assert "not required" in cin_res.json()["detail"].lower()
+
+    # 3. Check-out attempt is rejected with 400
+    cout_res = client.post(f"/api/attendance/portal/{token}/check-out", json={})
+    assert cout_res.status_code == 400
+    assert "not required" in cout_res.json()["detail"].lower()
+
+
+def test_rejected_leave_remains_as_it_is(db_session):
+    emp = db_session.query(Employee).filter(Employee.employee_id == "EXP-105").first()
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    future_date = date.today() + timedelta(days=20)
+
+    fake_pdf = io.BytesIO(b"%PDF-1.4 sample content for automated test")
+    upload = UploadFile(filename="cert.pdf", file=fake_pdf)
+    from app.services.leave_service import LeaveService
+    leave_req = LeaveService.create_leave_request(
+        db=db_session,
+        employee=emp,
+        leave_type="CL",
+        start_date=future_date,
+        end_date=future_date,
+        reason="Personal travel",
+        attachment_file=upload
+    )
+
+    # Admin rejects the leave
+    LeaveService.process_decision(
+        db=db_session,
+        request_id=leave_req.id,
+        admin_user=admin,
+        status_choice="REJECTED",
+        rejection_reason="Insufficient team coverage"
+    )
+
+    # Verify placeholder record was removed so future date remains completely untouched
+    rec = db_session.query(AttendanceRecord).filter(
+        AttendanceRecord.employee_id == emp.employee_id,
+        AttendanceRecord.attendance_date == future_date
+    ).first()
+    assert rec is None, "Rejected leave should not leave pre-marked absence records"

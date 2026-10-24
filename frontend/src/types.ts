@@ -118,6 +118,8 @@ export interface PortalInfo {
   holiday_name?: string;
   is_weekly_off?: boolean;
   off_day_name?: string;
+  is_approved_leave?: boolean;
+  approved_leave_type?: string;
   monthly_hours_worked?: number;
   monthly_target_hours?: number;
   has_achievement_badge?: boolean;
@@ -133,6 +135,7 @@ export interface PortalInfo {
     duration?: number;
     is_late: boolean;
     description?: string;
+    is_approved_leave?: boolean;
   };
   recent_records: Array<{
     date: string;

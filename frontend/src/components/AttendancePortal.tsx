@@ -140,7 +140,11 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
 
   const isHoliday = Boolean(portalData?.is_holiday);
   const isWeeklyOff = Boolean(portalData?.is_weekly_off);
-  const isOffDay = (isHoliday || isWeeklyOff) && !isCheckedIn;
+  const isApprovedLeave =
+    todayRec?.status === 'ON_LEAVE' ||
+    Boolean(todayRec?.is_approved_leave) ||
+    Boolean((portalData as any)?.is_approved_leave);
+  const isOffDay = (isHoliday || isWeeklyOff) && !isCheckedIn && !isApprovedLeave;
 
   // Records to display in history table
   const displayedRecords =
@@ -271,8 +275,29 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
               </div>
             </div>
 
-            {/* Daily Attendance Action Box / Off-Day Banner */}
-            {isOffDay ? (
+            {/* Daily Attendance Action Box / Off-Day Banner / Approved Leave Banner */}
+            {isApprovedLeave ? (
+              <div className="glass-card rounded-2xl p-5 sm:p-7 border border-emerald-300/80 bg-gradient-to-br from-emerald-50/80 via-teal-50/60 to-emerald-100/50 shadow-md text-center">
+                <div className="space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-600" />
+                  </div>
+                  <div>
+                    <span className="text-base font-black text-[#16194F] block">
+                      Approved Leave for Today ({todayRec?.description || (portalData as any)?.approved_leave_type || 'Leave Granted'})
+                    </span>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-1.5 max-w-lg mx-auto">
+                      Your leave application has been approved by management. No check-in, check-out, or full-day/half-day attendance recording is required today. Enjoy your time off!
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
+                      ✓ Leave Approved — Attendance Waived
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : isOffDay ? (
               <div className="glass-card rounded-2xl p-4 sm:p-6 border border-white/90 shadow-sm text-center">
                 {isHoliday ? (
                   <div className="space-y-3">

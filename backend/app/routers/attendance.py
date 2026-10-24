@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
 from app.database import get_db
-from app.models import AttendanceRecord, Employee, User, Holiday
+from app.models import AttendanceRecord, Employee, User, Holiday, LeaveRequest
 from app.schemas import (
     CheckInRequest, CheckOutRequest, ManualCorrectionRequest, 
     AttendanceRecordResponse, EmployeePortalInfo, ManualAddAttendanceRequest
@@ -36,14 +36,41 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
     is_weekly_off = day_name.lower() in weekly_offs
     off_day_name = day_name if is_weekly_off else None
 
+    # Check if employee has an approved leave for today
+    approved_leave = db.query(LeaveRequest).filter(
+        LeaveRequest.employee_id == employee.employee_id,
+        LeaveRequest.status == "APPROVED",
+        LeaveRequest.start_date <= curr_date,
+        LeaveRequest.end_date >= curr_date
+    ).first()
+
     # 3. Today's attendance record (if employee checked in or requested leave)
     today_rec = db.query(AttendanceRecord).filter(
         AttendanceRecord.employee_id == employee.employee_id,
         AttendanceRecord.attendance_date == curr_date
     ).first()
 
+    is_on_approved_leave = (
+        approved_leave is not None or
+        (today_rec is not None and today_rec.attendance_classification == "ON_LEAVE")
+    )
+
     today_dict = None
-    if today_rec:
+    if is_on_approved_leave:
+        today_dict = {
+            "id": today_rec.id if today_rec else None,
+            "status": "ON_LEAVE",
+            "day_type": "FULL_DAY",
+            "check_in": None,
+            "check_out": None,
+            "is_checked_in": False,
+            "is_checked_out": False,
+            "is_approved_leave": True,
+            "duration": 0.0,
+            "is_late": False,
+            "description": f"Approved Leave ({approved_leave.leave_type if approved_leave else 'Leave Granted'})"
+        }
+    elif today_rec:
         cin = today_rec.check_in_timestamp.astimezone(tz).strftime("%I:%M %p") if today_rec.check_in_timestamp else None
         cout = today_rec.check_out_timestamp.astimezone(tz).strftime("%I:%M %p") if today_rec.check_out_timestamp else None
         today_dict = {
@@ -148,6 +175,8 @@ def get_portal_info(token: str, db: Session = Depends(get_db)):
         "holiday_name": holiday_name,
         "is_weekly_off": is_weekly_off,
         "off_day_name": off_day_name,
+        "is_approved_leave": is_on_approved_leave,
+        "approved_leave_type": approved_leave.leave_type if approved_leave else ("LEAVE" if is_on_approved_leave else None),
         "monthly_hours_worked": monthly_hours_worked,
         "monthly_target_hours": target_hours,
         "has_achievement_badge": has_achievement_badge,

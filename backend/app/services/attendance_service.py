@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 import json
 
 from app.config import settings
-from app.models import AttendanceRecord, Employee, WorkSchedule, AuditLog, Notification
+from app.models import AttendanceRecord, Employee, WorkSchedule, AuditLog, Notification, LeaveRequest
 from app.services.event_service import broadcaster
 
 def get_company_tz() -> ZoneInfo:
@@ -66,6 +66,19 @@ class AttendanceService:
         tz = get_company_tz()
         local_now = datetime.now(tz)
 
+        # Check if employee has an approved leave for today
+        approved_leave = db.query(LeaveRequest).filter(
+            LeaveRequest.employee_id == employee.employee_id,
+            LeaveRequest.status == "APPROVED",
+            LeaveRequest.start_date <= current_date,
+            LeaveRequest.end_date >= current_date
+        ).first()
+        if approved_leave:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your leave request has been approved for today. Check-in is not required."
+            )
+
         # Check if record already exists for today
         existing = db.query(AttendanceRecord).filter(
             AttendanceRecord.employee_id == employee.employee_id,
@@ -73,11 +86,16 @@ class AttendanceService:
         ).with_for_update().first()
 
         if existing:
-            # If already checked in or on leave, return existing without duplicating
-            if existing.attendance_classification in ["ABSENT", "ON_LEAVE"]:
+            # If already marked on leave or absent
+            if existing.attendance_classification == "ON_LEAVE":
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Attendance already marked as {existing.attendance_classification} for today. Administrative review required."
+                    detail="Your leave request has been approved for today. Check-in is not required."
+                )
+            if existing.attendance_classification == "ABSENT":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Attendance already marked as ABSENT for today. Administrative review required."
                 )
             if existing.check_in_timestamp:
                 # Idempotent response: return existing record
@@ -125,16 +143,33 @@ class AttendanceService:
             AttendanceRecord.attendance_date == current_date
         ).with_for_update().first()
 
+        approved_leave = db.query(LeaveRequest).filter(
+            LeaveRequest.employee_id == employee.employee_id,
+            LeaveRequest.status == "APPROVED",
+            LeaveRequest.start_date <= current_date,
+            LeaveRequest.end_date >= current_date
+        ).first()
+        if approved_leave:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Your leave request has been approved for today. Check-out is not required."
+            )
+
         if not record:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No check-in record found for today. Check-in is required before checking out."
             )
 
-        if record.attendance_classification in ["ABSENT", "ON_LEAVE"]:
+        if record.attendance_classification == "ON_LEAVE":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot check out on an absent/leave record."
+                detail="Your leave request has been approved for today. Check-out is not required."
+            )
+        if record.attendance_classification == "ABSENT":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot check out on an absent record."
             )
 
         if not record.check_in_timestamp:

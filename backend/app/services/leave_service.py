@@ -178,25 +178,54 @@ class LeaveService:
         leave_req.rejection_reason = rejection_reason if status_choice == "REJECTED" else None
 
         # Update affected attendance records
-        curr = leave_req.start_date
-        target_class = "ON_LEAVE" if status_choice == "APPROVED" else "ABSENT"
-        while curr <= leave_req.end_date:
-            rec = db.query(AttendanceRecord).filter(
-                AttendanceRecord.employee_id == leave_req.employee_id,
-                AttendanceRecord.attendance_date == curr
-            ).first()
-            if rec:
-                rec.attendance_classification = target_class
-                rec.related_leave_id = leave_req.id
-            else:
-                new_rec = AttendanceRecord(
-                    employee_id=leave_req.employee_id,
-                    attendance_date=curr,
-                    attendance_classification=target_class,
-                    related_leave_id=leave_req.id
-                )
-                db.add(new_rec)
-            curr += timedelta(days=1)
+        if status_choice == "APPROVED":
+            curr = leave_req.start_date
+            while curr <= leave_req.end_date:
+                rec = db.query(AttendanceRecord).filter(
+                    AttendanceRecord.employee_id == leave_req.employee_id,
+                    AttendanceRecord.attendance_date == curr
+                ).first()
+                if rec:
+                    rec.attendance_classification = "ON_LEAVE"
+                    rec.day_type = "FULL_DAY"
+                    rec.check_in_timestamp = None
+                    rec.check_out_timestamp = None
+                    rec.recorded_working_duration = 0.0
+                    rec.is_late = False
+                    rec.is_early_departure = False
+                    rec.is_incomplete = False
+                    rec.related_leave_id = leave_req.id
+                else:
+                    new_rec = AttendanceRecord(
+                        employee_id=leave_req.employee_id,
+                        attendance_date=curr,
+                        attendance_classification="ON_LEAVE",
+                        day_type="FULL_DAY",
+                        check_in_timestamp=None,
+                        check_out_timestamp=None,
+                        recorded_working_duration=0.0,
+                        is_late=False,
+                        is_early_departure=False,
+                        is_incomplete=False,
+                        related_leave_id=leave_req.id
+                    )
+                    db.add(new_rec)
+                curr += timedelta(days=1)
+        elif status_choice == "REJECTED":
+            # If rejected, remove any pending absence placeholder so everything remains as it is
+            curr = leave_req.start_date
+            while curr <= leave_req.end_date:
+                rec = db.query(AttendanceRecord).filter(
+                    AttendanceRecord.employee_id == leave_req.employee_id,
+                    AttendanceRecord.attendance_date == curr,
+                    AttendanceRecord.related_leave_id == leave_req.id
+                ).first()
+                if rec:
+                    if rec.check_in_timestamp is None:
+                        db.delete(rec)
+                    else:
+                        rec.related_leave_id = None
+                curr += timedelta(days=1)
 
         # Audit log
         audit = AuditLog(

@@ -97,6 +97,8 @@ class EmployeePortalInfo(BaseModel):
     holiday_name: Optional[str] = None
     is_weekly_off: bool = False
     off_day_name: Optional[str] = None
+    is_approved_leave: bool = False
+    approved_leave_type: Optional[str] = None
     monthly_hours_worked: float = 0.0
     monthly_target_hours: float = 160.0
     has_achievement_badge: bool = False
