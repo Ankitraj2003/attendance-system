@@ -22,7 +22,7 @@ services:
       - key: INITIAL_ADMIN_USERNAME
         value: admin
       - key: INITIAL_ADMIN_EMAIL
-        value: admin@expandit.com
+        value: expandit25@gmail.com
       - key: COMPANY_NAME
         value: Expandit
       - key: COMPANY_TIMEZONE

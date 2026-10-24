@@ -30,35 +30,35 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-4 relative overflow-y-auto">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-y-auto">
       {/* Decorative ambient background glows */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-200/40 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-200/40 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="glass-panel w-full max-w-sm sm:max-w-md rounded-2xl sm:rounded-3xl p-5 sm:p-8 border border-white/90 shadow-2xl relative z-10 my-auto">
+      <div className="glass-panel w-full max-w-xl rounded-[30px] p-6 sm:p-10 border border-white/90 shadow-2xl relative z-10 my-auto">
         {/* Branding Logo */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-8">
           <img
             src="/logo.png"
             alt="Expandit Logo"
-            className="h-12 sm:h-16 w-auto object-contain mx-auto mb-2 sm:mb-3 drop-shadow-xs"
+            className="h-20 sm:h-20 max-w-[230px] w-auto object-contain mx-auto mb-5 drop-shadow-xs"
           />
-          <h2 className="text-lg sm:text-xl font-black text-[#16194F] tracking-tight">Expandit Attendance System</h2>
-          <p className="text-xs text-slate-500 mt-1">Administrator Portal &amp; Management Control</p>
+          <h2 className="text-xl sm:text-2xl font-black text-[#16194F] tracking-tight">Expandit Attendance System</h2>
+          <p className="text-sm sm:text-base text-slate-500 mt-2">Administrator Portal &amp; Management Control</p>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+          <div className="mb-5 p-3 rounded-xl bg-red-50 text-red-700 text-sm border border-red-200">
             {errorMsg}
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1">Administrator Username</label>
+            <label className="text-sm font-bold text-slate-700 block mb-2">Administrator Username</label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-4" />
               <input
                 type="text"
                 required
@@ -66,7 +66,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter username"
                 autoComplete="username"
-                className="glass-input w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-medium"
+                className="glass-input !bg-[#e8f0ff] w-full pl-10 pr-4 py-3.5 rounded-2xl text-sm font-medium"
               />
             </div>
           </div>
@@ -82,12 +82,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password"
                 autoComplete="current-password"
-                className="glass-input w-full pl-10 pr-10 py-2.5 rounded-xl text-xs font-medium"
+                className="glass-input !bg-[#e8f0ff] w-full pl-10 pr-10 py-3.5 rounded-2xl text-sm font-medium"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="cursor-pointer absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                className="cursor-pointer absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 transition-colors"
                 title={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -98,7 +98,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ onSuccess }) => {
           <button
             type="submit"
             disabled={submitting}
-            className="cursor-pointer w-full py-3 rounded-xl font-bold text-xs bg-gradient-to-r from-[#16194F] to-[#1E2568] hover:from-[#1E2568] hover:to-[#2A348A] text-white shadow-md shadow-indigo-950/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            className="cursor-pointer w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-[#16194F] to-[#1E2568] hover:from-[#1E2568] hover:to-[#2A348A] text-white shadow-md shadow-indigo-950/20 hover:shadow-lg transition-all flex items-center justify-center gap-2"
           >
             <span>{submitting ? 'Authenticating...' : 'Sign In as Administrator'}</span>
             <ArrowRight className="w-4 h-4 text-[#F5BE2C]" />

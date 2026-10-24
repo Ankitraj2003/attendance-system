@@ -70,7 +70,8 @@ export const App: React.FC = () => {
   useEffect(() => {
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource('/api/events/stream');
+      const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+      eventSource = new EventSource(`${apiBaseUrl}/events/stream`);
       eventSource.onopen = () => {
         setIsRealtimeConnected(true);
       };
