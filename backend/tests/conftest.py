@@ -77,3 +77,13 @@ def setup_test_database():
     yield
 
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture
+def db_session():
+    """Provide a transactional database session for tests."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

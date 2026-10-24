@@ -32,67 +32,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def get_current_user(
-    token: Optional[str] = Depends(oauth2_scheme), 
-    db: Session = Depends(get_db)
-) -> Optional[User]:
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication credentials were not provided",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    user = db.query(User).filter(User.username == username).first()
-    if user is None or user.account_status != "ACTIVE":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or account is deactivated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    token_version = payload.get("token_version")
-    current_token_version = getattr(user, "token_version", 1) or 1
-    # Reject legacy tokens that lack a version claim; otherwise they could bypass
-    # session invalidation after a password change or administrator reset.
-    if token_version is None or token_version != current_token_version:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session has expired or credentials have been changed. Please log in again.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
-
-def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
-    if current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access restricted: Administrator authorization required."
-        )
-    return current_user
-
-def get_current_admin_flexible(
-    bearer_token: Optional[str] = Depends(oauth2_scheme),
-    query_token: Optional[str] = Query(None, alias="token"),
-    db: Session = Depends(get_db),
-) -> User:
-    """Validate admin authorization via standard Bearer header OR ?token= query parameter (for direct downloads)."""
-    token = bearer_token or query_token
+def validate_token_and_user(token: Optional[str], db: Session) -> User:
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -114,24 +54,60 @@ def get_current_admin_flexible(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
+    
     user = db.query(User).filter(User.username == username).first()
-    if not user or user.account_status != "ACTIVE":
+    if user is None or user.account_status != "ACTIVE":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or account is deactivated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
     token_version = payload.get("token_version")
-    current_token_version = getattr(user, "token_version", 1) or 1
-    # Reject legacy tokens that lack a version claim; otherwise they could bypass
-    # session invalidation after a password change or administrator reset.
-    if token_version is None or token_version != current_token_version:
+    # Strict validation: token_version must be present, positive integer, strictly not boolean
+    if (
+        token_version is None
+        or isinstance(token_version, bool)
+        or not isinstance(token_version, int)
+        or token_version <= 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing token version. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    expected_version = getattr(user, "token_version", 1) or 1
+    if token_version != expected_version:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session has expired or credentials have been changed. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return user
+
+def get_current_user(
+    token: Optional[str] = Depends(oauth2_scheme), 
+    db: Session = Depends(get_db)
+) -> User:
+    return validate_token_and_user(token, db)
+
+def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "ADMIN":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access restricted: Administrator authorization required."
+        )
+    return current_user
+
+def get_current_admin_flexible(
+    bearer_token: Optional[str] = Depends(oauth2_scheme),
+    query_token: Optional[str] = Query(None, alias="token"),
+    db: Session = Depends(get_db),
+) -> User:
+    """Validate admin authorization via standard Bearer header OR ?token= query parameter (for direct downloads)."""
+    token = bearer_token or query_token
+    user = validate_token_and_user(token, db)
     if user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

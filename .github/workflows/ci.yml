@@ -19,7 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Scan for committed secrets and private keys
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan working tree for unmanaged secret patterns
         run: |
           echo "Scanning working tree for accidentally committed secret patterns..."
           # Check for tracked .env files
@@ -93,4 +98,7 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
-      - run: pytest -v
+      - name: Verify Alembic migrations against PostgreSQL
+        run: alembic upgrade head
+      - name: Run automated test suite
+        run: pytest -v
