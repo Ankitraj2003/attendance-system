@@ -49,6 +49,14 @@ else:
         "http://127.0.0.1:3000",
     ]
 
+# Explicit production frontend origins. Keeping these in code avoids a missing or
+# stale Render environment variable locking users out of the login page.
+production_frontend_origins = [
+    "https://epandit-hrms.vercel.app",
+    "https://hrms-frontend-peach.vercel.app",
+]
+origins = list(dict.fromkeys(origins + production_frontend_origins))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
