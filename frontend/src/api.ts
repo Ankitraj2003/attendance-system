@@ -160,6 +160,10 @@ export const api = {
     });
   },
 
+  async getEmployeePortalLink(employeeId: string) {
+    return request<{ employee_id: string; token_secret: string; portal_url?: string }>(`/employees/${employeeId}/portal-link`);
+  },
+
   async getEmployeeDashboard(employeeId: string, startDate?: string, endDate?: string) {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
@@ -272,14 +276,12 @@ export const api = {
     });
   },
 
-  // Export URLs & Download Helpers
+  // Export URLs & Secure Download Helpers (Authentication via Bearer token in headers, no URL query tokens)
   getCompanyExcelUrl(startDate?: string, endDate?: string, department?: string) {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
     if (department) q.append('department', department);
-    const token = getAuthToken();
-    if (token) q.append('token', token);
     return `${BASE_URL}/reports/company/excel?${q.toString()}`;
   },
 
@@ -288,8 +290,6 @@ export const api = {
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
     if (department) q.append('department', department);
-    const token = getAuthToken();
-    if (token) q.append('token', token);
     return `${BASE_URL}/reports/company/csv?${q.toString()}`;
   },
 
@@ -297,8 +297,6 @@ export const api = {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
-    const token = getAuthToken();
-    if (token) q.append('token', token);
     return `${BASE_URL}/reports/employee/${employeeId}/excel?${q.toString()}`;
   },
 
@@ -306,8 +304,6 @@ export const api = {
     const q = new URLSearchParams();
     if (startDate) q.append('start_date', startDate);
     if (endDate) q.append('end_date', endDate);
-    const token = getAuthToken();
-    if (token) q.append('token', token);
     return `${BASE_URL}/reports/employee/${employeeId}/csv?${q.toString()}`;
   },
 
@@ -342,10 +338,7 @@ export const api = {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   },
 
-  getAttachmentDownloadUrl(attachmentId: number) {
-    const token = getAuthToken();
-    return token
-      ? `${BASE_URL}/attachments/${attachmentId}/download?token=${encodeURIComponent(token)}`
-      : `${BASE_URL}/attachments/${attachmentId}/download`;
+  async downloadAttachment(attachmentId: number, fallbackFilename?: string) {
+    return this.downloadFile(`${BASE_URL}/attachments/${attachmentId}/download`, fallbackFilename);
   }
 };

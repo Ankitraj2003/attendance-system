@@ -105,7 +105,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
   };
 
   const formatIST = (timestamp?: string) => {
-    if (!timestamp) return '—';
+    if (!timestamp) return 'â€”';
     try {
       return new Date(timestamp).toLocaleTimeString('en-IN', {
         timeZone: 'Asia/Kolkata',
@@ -114,7 +114,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
         hour12: true,
       });
     } catch {
-      return '—';
+      return 'â€”';
     }
   };
 
@@ -377,7 +377,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
                         <td className="py-2 font-mono text-slate-600">{formatIST(r.check_in_timestamp)}</td>
                         <td className="py-2 font-mono text-slate-600">{formatIST(r.check_out_timestamp)}</td>
                         <td className="py-2 text-right font-mono font-bold text-slate-800">
-                          {r.recorded_working_duration ? `${r.recorded_working_duration}h` : '—'}
+                          {r.recorded_working_duration ? `${r.recorded_working_duration}h` : 'â€”'}
                         </td>
                       </tr>
                     ))}
@@ -430,17 +430,17 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
                           </td>
                           <td className="py-2 text-right">
                             {l.attachments && l.attachments.length > 0 ? (
-                              <a
-                                href={api.getAttachmentDownloadUrl(l.attachments[0].id)}
-                                target="_blank"
-                                rel="noreferrer"
+                              <button
+                                type="button"
+                                onClick={() => api.downloadAttachment(l.attachments[0].id, l.attachments[0].original_filename)}
                                 className="cursor-pointer inline-flex items-center gap-1 text-[11px] font-bold text-[#00A3E0] hover:underline"
+                                title="Download uploaded medical/supporting document securely"
                               >
                                 <Download className="w-3 h-3" />
                                 <span>Doc</span>
-                              </a>
+                              </button>
                             ) : (
-                              '—'
+                              'â€”'
                             )}
                           </td>
                         </tr>

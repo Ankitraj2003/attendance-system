@@ -23,6 +23,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
 
       - name: Scan working tree for unmanaged secret patterns
         run: |
@@ -98,7 +99,9 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install --upgrade pip
       - run: pip install -r requirements.txt
-      - name: Verify Alembic migrations against PostgreSQL
+      - name: Verify Alembic migrations against fresh PostgreSQL (Case A)
+        run: alembic upgrade head
+      - name: Verify idempotent Alembic migrations against existing schema (Case B)
         run: alembic upgrade head
       - name: Run automated test suite
         run: pytest -v

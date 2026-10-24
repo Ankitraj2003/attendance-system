@@ -23,6 +23,13 @@ def upgrade() -> None:
     inspector = inspect(bind)
     existing_tables = set(inspector.get_table_names())
 
+    # Case A: Fresh database with no core tables
+    if "users" not in existing_tables:
+        from app.models import Base
+        Base.metadata.create_all(bind, checkfirst=True)
+        return
+
+    # Case B: Pre-existing database (e.g. existing production database)
     # 1. Handle departments table if missing
     if "departments" not in existing_tables:
         op.create_table(

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AttendanceAttachment, User
-from app.auth import get_current_admin_flexible
+from app.auth import get_current_admin
 
 router = APIRouter(prefix="/api/attachments", tags=["Attachments"])
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/attachments", tags=["Attachments"])
 def download_attachment(
     attachment_id: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin_flexible),
+    admin: User = Depends(get_current_admin),
 ):
     attachment = db.query(AttendanceAttachment).filter(AttendanceAttachment.id == attachment_id).first()
     if not attachment:

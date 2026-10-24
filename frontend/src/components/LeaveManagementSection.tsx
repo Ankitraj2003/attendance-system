@@ -209,16 +209,15 @@ export const LeaveManagementSection: React.FC = () => {
                     </td>
                     <td className="py-3 px-4">
                       {l.attachments && l.attachments.length > 0 ? (
-                        <a
-                          href={api.getAttachmentDownloadUrl(l.attachments[0].id)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => api.downloadAttachment(l.attachments[0].id, l.attachments[0].original_filename)}
                           className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold hover:bg-amber-100 transition-colors shadow-2xs"
-                          title="Open uploaded medical/supporting document in new tab"
+                          title="Download uploaded medical/supporting document securely"
                         >
                           <ExternalLink className="w-3.5 h-3.5 text-amber-700" />
                           <span>View Doc</span>
-                        </a>
+                        </button>
                       ) : (
                         <span className="text-slate-400 italic">No document</span>
                       )}

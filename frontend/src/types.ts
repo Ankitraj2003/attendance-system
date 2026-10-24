@@ -31,7 +31,7 @@ export interface Employee {
   date_of_exit?: string;
   employment_status: string;
   account_status: string;
-  token_secret: string;
+  token_secret?: string;
   weekly_off_days: string;
   assigned_schedule_id?: number;
   schedule?: WorkSchedule;

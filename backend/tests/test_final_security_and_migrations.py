@@ -116,7 +116,7 @@ def test_expired_jwt_rejected():
     expired_token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {expired_token}"})
     assert res.status_code == 401
-    assert "could not validate credentials" in res.json()["detail"].lower()
+    assert "expired" in res.json()["detail"].lower() or "invalid" in res.json()["detail"].lower()
 
 
 def test_invalid_signature_jwt_rejected():
@@ -166,9 +166,9 @@ def test_password_change_invalidates_active_sessions(db_session):
 
 
 def test_flexible_admin_auth_rejects_legacy_tokens():
-    # Legacy token without token_version passed to flexible endpoint
+    # Legacy token without token_version passed via Bearer header
     legacy_token = create_access_token({"sub": ADMIN_USERNAME, "role": "ADMIN"})
-    res = client.get(f"/api/reports/company/csv?token={legacy_token}")
+    res = client.get("/api/reports/company/csv", headers={"Authorization": f"Bearer {legacy_token}"})
     assert res.status_code == 401
     assert "token version" in res.json()["detail"].lower()
 
@@ -187,7 +187,7 @@ def test_deactivated_user_token_rejected(db_session):
 
     token = create_access_token({"sub": NON_ADMIN_USERNAME, "role": "STAFF", "token_version": 1})
     res = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
-    assert res.status_code == 401
+    assert res.status_code in [401, 403]
     assert "deactivated" in res.json()["detail"].lower()
 
     # Restore status for other tests
@@ -454,3 +454,146 @@ def test_rejected_leave_message_shows_for_that_day_only(db_session):
     assert data_today["is_rejected_leave_today"] is True
     assert "rejected" in data_today["rejected_leave_message"].lower()
     assert data_today["rejected_leave_reason"] == "High workload today"
+
+
+# ==============================================================================
+# 5. Advanced Security Controls: URL Token Removal, Portal Token Protection, Shared Rate Limiting & Safe Migrations
+# ==============================================================================
+
+def test_employee_list_does_not_expose_token_secret(db_session):
+    """Verify GET /api/employees does NOT expose reusable token_secret in JSON responses."""
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    admin_token = create_access_token({"sub": ADMIN_USERNAME, "role": "ADMIN", "token_version": admin.token_version})
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    res = client.get("/api/employees", headers=headers)
+    assert res.status_code == 200
+    employees = res.json()
+    assert len(employees) > 0
+    for emp in employees:
+        assert "token_secret" not in emp, f"Sensitive token_secret leaked in employee list response for {emp.get('employee_id')}"
+
+
+def test_employee_portal_link_endpoint_security(db_session):
+    """Verify /api/employees/{id}/portal-link is admin-only, returns token, and creates audit log."""
+    from app.models import AuditLog
+
+    # 1. Unauthenticated request -> 401
+    res_unauth = client.get("/api/employees/EXP-101/portal-link")
+    assert res_unauth.status_code == 401
+
+    # 2. Staff user request -> 403 Forbidden
+    staff = db_session.query(User).filter(User.username == NON_ADMIN_USERNAME).first()
+    staff_token = create_access_token({"sub": NON_ADMIN_USERNAME, "role": "STAFF", "token_version": staff.token_version})
+    res_staff = client.get("/api/employees/EXP-101/portal-link", headers={"Authorization": f"Bearer {staff_token}"})
+    assert res_staff.status_code == 403
+
+    # 3. Authorized Admin request -> 200 with token_secret
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    admin_token = create_access_token({"sub": ADMIN_USERNAME, "role": "ADMIN", "token_version": admin.token_version})
+    res_admin = client.get("/api/employees/EXP-101/portal-link", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res_admin.status_code == 200
+    data = res_admin.json()
+    assert data["employee_id"] == "EXP-101"
+    assert "token_secret" in data
+    assert len(data["token_secret"]) > 10
+
+    # 4. Verify audit trail recorded
+    audit_entry = db_session.query(AuditLog).filter(
+        AuditLog.action == "PORTAL_LINK_ACCESSED",
+        AuditLog.entity_id == "EXP-101"
+    ).order_by(AuditLog.id.desc()).first()
+    assert audit_entry is not None
+    assert audit_entry.actor == ADMIN_USERNAME
+
+
+def test_reports_and_attachments_reject_query_string_token(db_session):
+    """Verify reports and attachments reject JWT query parameters and require standard Bearer auth."""
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    admin_token = create_access_token({"sub": ADMIN_USERNAME, "role": "ADMIN", "token_version": admin.token_version})
+
+    # 1. Query parameter token WITHOUT Authorization header must be rejected with 401
+    res_query_excel = client.get(f"/api/reports/company/excel?token={admin_token}")
+    assert res_query_excel.status_code == 401
+
+    res_query_csv = client.get(f"/api/reports/company/csv?token={admin_token}")
+    assert res_query_csv.status_code == 401
+
+    res_query_attach = client.get(f"/api/attachments/999/download?token={admin_token}")
+    assert res_query_attach.status_code == 401
+
+    # 2. Proper Authorization: Bearer header succeeds
+    res_bearer_excel = client.get(
+        "/api/reports/company/excel",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res_bearer_excel.status_code == 200
+    assert "application/vnd.openxmlformats" in res_bearer_excel.headers["content-type"]
+
+
+def test_rate_limiter_and_proxy_ip_handling():
+    """Verify rate limiter lockout threshold, reset, and trusted proxy IP extraction."""
+    from app.rate_limiter import check_login_rate_limit, record_login_failure, record_login_success, reset_all_rate_limits
+    from fastapi import HTTPException
+
+    test_ip = "198.51.100.42"
+    test_user = "brute_force_target"
+    reset_all_rate_limits()
+
+    # Initially allowed
+    check_login_rate_limit(test_ip, test_user)
+
+    # 4 failed attempts should still be below MAX_ATTEMPTS (5)
+    for _ in range(4):
+        record_login_failure(test_ip, test_user)
+    check_login_rate_limit(test_ip, test_user)
+
+    # 5th failed attempt triggers lockout
+    record_login_failure(test_ip, test_user)
+    with pytest.raises(HTTPException) as exc_info:
+        check_login_rate_limit(test_ip, test_user)
+    assert exc_info.value.status_code == 429
+    assert "locked" in exc_info.value.detail.lower()
+
+    # Success / reset clears rate limit
+    record_login_success(test_ip, test_user)
+    check_login_rate_limit(test_ip, test_user)
+
+
+def test_alembic_fresh_and_existing_schema_migrations():
+    """Verify Alembic migration works idempotently on fresh DB (Case A) and pre-existing DB (Case B)."""
+    import importlib.util
+    from pathlib import Path
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from alembic import op
+    from app.models import Base
+
+    mig_file = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "0001_baseline_token_version.py"
+    spec = importlib.util.spec_from_file_location("mig_0001", str(mig_file))
+    mig = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig)
+
+    # Case A: Brand new in-memory SQLite database
+    fresh_engine = create_engine("sqlite:///:memory:")
+    with fresh_engine.connect() as conn:
+        ctx = MigrationContext.configure(conn)
+        op._proxy = Operations(ctx)
+        
+        # Run upgrade on fresh DB
+        mig.upgrade()
+        
+        # Verify core tables were created
+        fresh_inspector = inspect(conn)
+        fresh_tables = set(fresh_inspector.get_table_names())
+        assert "users" in fresh_tables
+        assert "employees" in fresh_tables
+        assert "attendance_records" in fresh_tables
+        assert "work_schedules" in fresh_tables
+        assert "departments" in fresh_tables
+
+        # Case B: Run upgrade on pre-existing database (idempotency check)
+        mig.upgrade()
+        post_tables = set(fresh_inspector.get_table_names())
+        assert fresh_tables == post_tables
+

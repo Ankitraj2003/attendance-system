@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User, Employee
-from app.auth import get_current_admin, get_current_admin_flexible
+from app.auth import get_current_admin
 from app.services.export_service import ExportService
 from app.services.attendance_service import get_current_company_date_and_time
 
@@ -18,7 +18,7 @@ def download_company_excel(
     end_date: Optional[date] = None,
     department: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin_flexible)
+    admin: User = Depends(get_current_admin)
 ):
     curr_d, _ = get_current_company_date_and_time()
     end = end_date or curr_d
@@ -44,7 +44,7 @@ def download_company_csv(
     end_date: Optional[date] = None,
     department: Optional[str] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin_flexible)
+    admin: User = Depends(get_current_admin)
 ):
     curr_d, _ = get_current_company_date_and_time()
     end = end_date or curr_d
@@ -70,7 +70,7 @@ def download_employee_excel(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin_flexible)
+    admin: User = Depends(get_current_admin)
 ):
     emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
     if not emp:
@@ -100,7 +100,7 @@ def download_employee_csv(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin_flexible)
+    admin: User = Depends(get_current_admin)
 ):
     emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
     if not emp:

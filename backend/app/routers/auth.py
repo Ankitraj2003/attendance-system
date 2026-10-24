@@ -1,4 +1,5 @@
 import json
+import ipaddress
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -12,10 +13,28 @@ from app.rate_limiter import check_login_rate_limit, record_login_failure, recor
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 def get_client_ip(request: Request) -> str:
+    """Safely extract and validate client IP from reverse-proxy headers or socket."""
+    for header in ["CF-Connecting-IP", "True-Client-IP", "X-Real-IP"]:
+        ip = request.headers.get(header)
+        if ip:
+            clean = ip.strip()
+            try:
+                ipaddress.ip_address(clean)
+                return clean
+            except ValueError:
+                pass
+
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        for p in parts:
+            try:
+                ipaddress.ip_address(p)
+                return p
+            except ValueError:
+                continue
+
+    return request.client.host if request.client and request.client.host else "unknown"
 
 @router.post("/login", response_model=Token)
 def login(

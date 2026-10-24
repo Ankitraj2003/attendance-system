@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Employee, User, WorkSchedule, AttendanceRecord, LeaveRequest, AuditLog
-from app.schemas import EmployeeCreate, EmployeeUpdate, EmployeeResponse
+from app.schemas import EmployeeCreate, EmployeeUpdate, EmployeeResponse, EmployeePortalLinkResponse
 from app.auth import get_current_admin
 from app.services.analytics_service import AnalyticsService
 
@@ -82,7 +82,7 @@ def update_employee(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    update_data = payload.dict(exclude_unset=True)
+    update_data = payload.model_dump(exclude_unset=True)
     for field, val in update_data.items():
         setattr(emp, field, val)
 
@@ -133,6 +133,33 @@ def toggle_employee_status(
         "account_status": new_status,
         "date_of_exit": emp.date_of_exit.isoformat() if emp.date_of_exit else None
     }
+
+@router.get("/{employee_id}/portal-link", response_model=EmployeePortalLinkResponse)
+def get_employee_portal_link(
+    employee_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin)
+):
+    """Retrieve personal attendance portal link for an employee (strictly admin-only, audit-logged)."""
+    emp = db.query(Employee).filter(Employee.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    audit = AuditLog(
+        actor=admin.username,
+        actor_role="ADMIN",
+        action="PORTAL_LINK_ACCESSED",
+        entity_type="EMPLOYEE",
+        entity_id=employee_id,
+        reason=f"Administrator accessed attendance portal link for {emp.name}"
+    )
+    db.add(audit)
+    db.commit()
+
+    return EmployeePortalLinkResponse(
+        employee_id=emp.employee_id,
+        token_secret=emp.token_secret
+    )
 
 @router.post("/{employee_id}/regenerate-token")
 def regenerate_attendance_token(

@@ -78,9 +78,14 @@ class EmployeeUpdate(BaseModel):
 class EmployeeResponse(EmployeeBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    token_secret: str
     created_at: datetime
     schedule: Optional[WorkScheduleResponse] = None
+
+class EmployeePortalLinkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    employee_id: str
+    token_secret: str
+    portal_url: Optional[str] = None
 
 class EmployeePortalInfo(BaseModel):
     employee_id: str

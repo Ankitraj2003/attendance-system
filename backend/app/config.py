@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -64,5 +65,8 @@ class Settings:
     COMPANY_TIMEZONE: str = os.getenv("COMPANY_TIMEZONE", "Asia/Kolkata")
     STORAGE_DIR: str = os.getenv("STORAGE_DIR", str(BASE_DIR / "storage" / "uploads"))
     MAX_FILE_SIZE_MB: int = int(os.getenv("MAX_FILE_SIZE_MB", "5"))
+
+    # Shared Redis Cache / Rate Limiter
+    REDIS_URL: Optional[str] = os.getenv("REDIS_URL", "").strip() or None
 
 settings = Settings()

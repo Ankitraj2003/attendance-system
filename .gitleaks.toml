@@ -1,0 +1,17 @@
+# Gitleaks configuration file
+title = "Expandit Attendance System Gitleaks Configuration"
+
+[allowlist]
+description = "Baseline allowlist for historical commits prior to secret remediation and documentation fixtures"
+commits = [
+    "afee4390bda2435f9ed5e051b69367f4e2fe922f",
+    "b4af0c26569ec11ce02ff7bb71ee3f1d87e07d72",
+    "2ce2e7e98a3b83870f7cf435f3dfdbe88d3ca34f",
+    "0b3fb34de9236427d19cfb05611f7c1cb5bb9f48",
+    "58826943896fae85e05ec4cf56f7ef059b0ae808"
+]
+paths = [
+    '''\.env\.example$''',
+    '''\.gitleaks\.toml$''',
+    '''backend/tests/.*'''
+]

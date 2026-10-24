@@ -1,8 +1,9 @@
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import bcrypt
 from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, Query, status
+import bcrypt
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -13,14 +14,17 @@ from app.models import User, Employee
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login", auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if not plain_password or not hashed_password:
+        return False
     try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        return bcrypt.checkpw(plain_password.encode("utf-8")[:72], hashed_password.encode("utf-8"))
     except Exception:
         return False
 
 def get_password_hash(password: str) -> str:
+    pwd_bytes = password.encode("utf-8")[:72]
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+    return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -33,50 +37,58 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 def validate_token_and_user(token: Optional[str], db: Session) -> User:
+    """Strictly validate JWT signature, sub claim, positive integer token_version, and active status."""
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication credentials were not provided",
+            detail="Authentication token is missing. Please log in.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if not username:
+        username: Optional[str] = payload.get("sub")
+        if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication token",
+                detail="Invalid token claims. Please log in again.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="Session expired or invalid token signature. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     user = db.query(User).filter(User.username == username).first()
-    if user is None or user.account_status != "ACTIVE":
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or account is deactivated",
+            detail="User account associated with this token does not exist.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    token_version = payload.get("token_version")
-    # Strict validation: token_version must be present, positive integer, strictly not boolean
-    if (
-        token_version is None
-        or isinstance(token_version, bool)
-        or not isinstance(token_version, int)
-        or token_version <= 0
-    ):
+    if user.account_status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account has been deactivated. Please contact an administrator.",
+        )
+
+    raw_token_version = payload.get("token_version")
+    if raw_token_version is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing token version. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if isinstance(raw_token_version, bool) or not isinstance(raw_token_version, int) or raw_token_version <= 0:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing token version. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    token_version = raw_token_version
     expected_version = getattr(user, "token_version", 1) or 1
     if token_version != expected_version:
         raise HTTPException(
@@ -102,12 +114,12 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
 
 def get_current_admin_flexible(
     bearer_token: Optional[str] = Depends(oauth2_scheme),
-    query_token: Optional[str] = Query(None, alias="token"),
     db: Session = Depends(get_db),
 ) -> User:
-    """Validate admin authorization via standard Bearer header OR ?token= query parameter (for direct downloads)."""
-    token = bearer_token or query_token
-    user = validate_token_and_user(token, db)
+    """Validate admin authorization strictly via standard Authorization: Bearer header.
+    Query-string tokens are deprecated and rejected to avoid URL leakage.
+    """
+    user = validate_token_and_user(bearer_token, db)
     if user.role != "ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
