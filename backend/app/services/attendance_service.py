@@ -21,7 +21,13 @@ def get_current_company_date_and_time() -> Tuple[date, datetime]:
     return local_now.date(), datetime.now(timezone.utc)
 
 def calculate_working_hours(check_in: datetime, check_out: datetime) -> float:
-    if not check_in or not check_out or check_out <= check_in:
+    if not check_in or not check_out:
+        return 0.0
+    if check_in.tzinfo is None and check_out.tzinfo is not None:
+        check_in = check_in.replace(tzinfo=check_out.tzinfo)
+    elif check_out.tzinfo is None and check_in.tzinfo is not None:
+        check_out = check_out.replace(tzinfo=check_in.tzinfo)
+    if check_out <= check_in:
         return 0.0
     diff = check_out - check_in
     return round(diff.total_seconds() / 3600.0, 2)

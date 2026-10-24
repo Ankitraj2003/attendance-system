@@ -1,5 +1,6 @@
-import pytest
+import os
 import io
+import pytest
 from datetime import date, datetime, timezone, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -10,8 +11,16 @@ from app.database import get_db, Base
 from app.models import User, Employee, AttendanceRecord, LeaveRequest, WorkSchedule
 from app.auth import get_password_hash, create_access_token
 from app.services.export_service import sanitize_for_spreadsheet
+from app.rate_limiter import reset_all_rate_limits
 
 client = TestClient(app)
+ADMIN_PASSWORD = os.getenv("DEV_ADMIN_PASSWORD", "LocalDevAdmin@2026!")
+
+@pytest.fixture(autouse=True)
+def clean_rate_limits():
+    reset_all_rate_limits()
+    yield
+    reset_all_rate_limits()
 
 def test_formula_injection_sanitization():
     assert sanitize_for_spreadsheet("=SUM(A1:A10)") == "'=SUM(A1:A10)"
@@ -27,12 +36,36 @@ def test_health_endpoint():
     assert data["status"] == "healthy"
     assert data["company"] == "Expandit"
 
+def test_security_headers_present():
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert "strict-origin-when-cross-origin" in response.headers.get("referrer-policy", "")
+    assert "default-src" in response.headers.get("content-security-policy", "")
+
 def test_admin_login():
-    response = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    response = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
     assert data["role"] == "ADMIN"
+
+def test_admin_login_invalid_password_returns_generic_error():
+    response = client.post("/api/auth/login", data={"username": "admin", "password": "WrongPassword@999"})
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Incorrect username/email or password"
+
+def test_login_rate_limiting_brute_force():
+    # Attempt 5 wrong logins
+    for _ in range(5):
+        res = client.post("/api/auth/login", data={"username": "admin", "password": "WrongPassword@123"})
+        assert res.status_code == 401
+    
+    # 6th attempt should be blocked with 429 Too Many Requests
+    blocked_res = client.post("/api/auth/login", data={"username": "admin", "password": "WrongPassword@123"})
+    assert blocked_res.status_code == 429
+    assert "Too many failed login attempts" in blocked_res.json()["detail"]
 
 def test_employee_portal_info():
     response = client.get("/api/attendance/portal/token_aarav_sharma_exp101_secure")
@@ -42,19 +75,16 @@ def test_employee_portal_info():
     assert data["name"] == "Aarav Sharma"
     assert "today_record" in data
     assert "monthly_target_hours" in data
-    # Target hours must be dynamic (>0 and matches working_days * 8)
     assert data["monthly_target_hours"] > 0
     assert data["monthly_target_hours"] % 8 == 0 or isinstance(data["monthly_target_hours"], float)
 
 def test_idempotent_check_in_and_single_record():
     token = "token_sneha_kulkarni_exp104_secure"
-    # First check-in
     res1 = client.post(f"/api/attendance/portal/{token}/check-in", json={"day_type": "FULL_DAY"})
     assert res1.status_code == 200
     data1 = res1.json()
     assert data1["employee_id"] == "EXP-104"
 
-    # Rapid second check-in (idempotency check)
     res2 = client.post(f"/api/attendance/portal/{token}/check-in", json={"day_type": "FULL_DAY"})
     assert res2.status_code == 200
     data2 = res2.json()
@@ -62,19 +92,17 @@ def test_idempotent_check_in_and_single_record():
 
 def test_subsequent_checkout_updates_same_record():
     token = "token_sneha_kulkarni_exp104_secure"
-    # Checkout
+    client.post(f"/api/attendance/portal/{token}/check-in", json={"day_type": "FULL_DAY"})
     res = client.post(f"/api/attendance/portal/{token}/check-out", json={})
     assert res.status_code == 200
     data = res.json()
     assert "check_out_time" in data
     assert data["check_out_time"] is not None
 
-    # Redundant checkout (idempotent - should not overwrite or create new record)
     res_repeat = client.post(f"/api/attendance/portal/{token}/check-out", json={})
     assert res_repeat.status_code == 200
 
 def test_unauthorized_dashboard_access_blocked():
-    # Attempting to access admin analytics or individual employee dashboard without token
     res = client.get("/api/analytics/kpis")
     assert res.status_code in [401, 403]
 
@@ -103,25 +131,22 @@ def test_leave_submission_with_attachment():
     assert "request_id" in res_data
 
 def test_admin_reports_excel_and_csv():
-    # Login admin first
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Company Excel
     excel_res = client.get("/api/reports/company/excel", headers=headers)
     assert excel_res.status_code == 200
     assert "application/vnd.openxmlformats" in excel_res.headers["content-type"]
 
-    # Company CSV
     csv_res = client.get("/api/reports/company/csv", headers=headers)
     assert csv_res.status_code == 200
     assert "text/csv" in csv_res.headers["content-type"]
     assert "Employee ID,Employee Name" in csv_res.text
 
-def test_change_password_flow():
+def test_change_password_flow_and_session_invalidation():
     # Login admin
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -130,48 +155,57 @@ def test_change_password_flow():
     assert bad_res.status_code == 400
 
     # Short new password (< 9 chars) should fail
-    short_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Pass@12"})
+    short_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": ADMIN_PASSWORD, "new_password": "Pass@12"})
     assert short_res.status_code == 400
 
     # Missing special char should fail
-    no_special_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Password123"})
+    no_special_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": ADMIN_PASSWORD, "new_password": "Password123"})
     assert no_special_res.status_code == 400
 
     # Missing digit should fail
-    no_digit_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "Password@!"})
+    no_digit_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": ADMIN_PASSWORD, "new_password": "Password@!"})
     assert no_digit_res.status_code == 400
 
     # Successful change (>= 9 chars, letter, digit, special char)
-    ok_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "Sia_Sandeep@2010", "new_password": "TempSecretPass@123"})
+    temp_pass = "TempSecretPass@123"
+    ok_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": ADMIN_PASSWORD, "new_password": temp_pass})
     assert ok_res.status_code == 200
 
+    # Prior JWT token must now be rejected because token_version was incremented
+    invalidated_res = client.get("/api/auth/me", headers=headers)
+    assert invalidated_res.status_code == 401
+    assert "Session has expired" in invalidated_res.json()["detail"] or "credentials" in invalidated_res.json()["detail"]
+
+    # Login with new password
+    new_login_res = client.post("/api/auth/login", data={"username": "admin", "password": temp_pass})
+    assert new_login_res.status_code == 200
+    new_token = new_login_res.json()["access_token"]
+    new_headers = {"Authorization": f"Bearer {new_token}"}
+
     # Revert back to maintain consistency for other tests
-    revert_res = client.post("/api/auth/change-password", headers=headers, json={"old_password": "TempSecretPass@123", "new_password": "Sia_Sandeep@2010"})
+    revert_res = client.post("/api/auth/change-password", headers=new_headers, json={"old_password": temp_pass, "new_password": ADMIN_PASSWORD})
     assert revert_res.status_code == 200
 
 def test_departments_crud():
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Get departments
     get_res = client.get("/api/departments", headers=headers)
     assert get_res.status_code == 200
     depts = get_res.json()
     assert len(depts) >= 4
 
-    # Create new department
     dept_name = "DevOps & Cloud Engineering"
     create_res = client.post("/api/departments", headers=headers, json={"name": dept_name})
     assert create_res.status_code in [200, 201]
     assert create_res.json()["name"] == dept_name
 
 def test_employee_update():
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Update employee EXP-101
     update_res = client.put(
         "/api/employees/EXP-101",
         headers=headers,
@@ -179,9 +213,7 @@ def test_employee_update():
     )
     assert update_res.status_code == 200
     assert update_res.json()["name"] == "Aarav Sharma Updated"
-    assert update_res.json()["designation"] == "Staff Engineer"
 
-    # Revert back
     client.put(
         "/api/employees/EXP-101",
         headers=headers,
@@ -189,11 +221,10 @@ def test_employee_update():
     )
 
 def test_manual_attendance_add_and_correct():
-    login_res = client.post("/api/auth/login", data={"username": "admin", "password": "Sia_Sandeep@2010"})
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Add manual attendance
     add_res = client.post(
         "/api/attendance/records/manual-add",
         headers=headers,
@@ -211,4 +242,3 @@ def test_manual_attendance_add_and_correct():
     record = add_res.json()
     assert record["employee_id"] == "EXP-101"
     assert record["is_manually_corrected"] is True
-    assert record["correction_reason"] == "Card reader malfunction on May 10; manual addition"

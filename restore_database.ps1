@@ -9,7 +9,9 @@ if (-not (Test-Path $BackupFile)) {
 }
 
 Write-Host "Restoring 'attendance_system' from: $BackupFile" -ForegroundColor Cyan
-$env:PGPASSWORD = "attendance_pass_2026"
+if (-not $env:PGPASSWORD) {
+    $env:PGPASSWORD = Read-Host -Prompt "Enter PostgreSQL password"
+}
 & "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U attendance_user -h localhost -d attendance_system -f $BackupFile
 
 if ($LASTEXITCODE -eq 0) {

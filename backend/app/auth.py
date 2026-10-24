@@ -65,6 +65,14 @@ def get_current_user(
             detail="User not found or account is deactivated",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    token_version = payload.get("token_version")
+    if token_version is not None and token_version != getattr(user, "token_version", 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired or credentials have been changed. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return user
 
 def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
@@ -109,6 +117,13 @@ def get_current_admin_flexible(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or account is deactivated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token_version = payload.get("token_version")
+    if token_version is not None and token_version != getattr(user, "token_version", 1):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has expired or credentials have been changed. Please log in again.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     if user.role != "ADMIN":

@@ -16,8 +16,10 @@ class User(Base):
     username = Column(String(100), unique=True, index=True, nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    token_version = Column(Integer, default=1, nullable=False)
     role = Column(String(50), default="EMPLOYEE", nullable=False) # ADMIN, EMPLOYEE
     account_status = Column(String(50), default="ACTIVE", nullable=False) # ACTIVE, INACTIVE
+
     created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -55,6 +57,7 @@ class Employee(Base):
     date_of_exit = Column(Date, nullable=True) # Automatically stamped when deactivated
     employment_status = Column(String(50), default="FULL_TIME", nullable=False) # FULL_TIME, PART_TIME, CONTRACT
     account_status = Column(String(50), default="ACTIVE", nullable=False) # ACTIVE, INACTIVE
+
     token_secret = Column(String(100), unique=True, index=True, nullable=False) # Reusable secure personal link
     assigned_schedule_id = Column(Integer, ForeignKey("work_schedules.id", ondelete="SET NULL"), nullable=True)
     weekly_off_days = Column(String(100), default="Sunday", nullable=False)

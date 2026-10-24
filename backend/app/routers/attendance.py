@@ -364,5 +364,7 @@ async def manual_add_record(
 
     return {
         "message": "Manual attendance record created successfully",
-        "record_id": record.id
+        "record_id": record.id,
+        "employee_id": record.employee_id,
+        "is_manually_corrected": record.is_manually_corrected
     }

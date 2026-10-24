@@ -11,9 +11,19 @@ htmlcov/
 
 # Secrets & Environment Variables
 .env
+.env.*
+*.env
+*.env.*
 *.env.local
+**/.env
+**/.env.*
 *.pem
 *.key
+*.crt
+*.pfx
+*.p12
+credentials.json
+service-account*.json
 *.db
 *.sqlite
 *.sqlite3

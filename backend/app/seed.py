@@ -27,6 +27,7 @@ def seed_database():
                     password_hash=get_password_hash(settings.INITIAL_ADMIN_PASSWORD),
                     role="ADMIN",
                     account_status="ACTIVE",
+                    token_version=1,
                 )
                 db.add(admin)
                 print("Initial administrator created from environment configuration.")
@@ -39,7 +40,7 @@ def seed_database():
                 admin = User(
                     username="admin",
                     email="admin@expandit.com",
-                    password_hash=get_password_hash("Sia_Sandeep@2010"),
+                    password_hash=get_password_hash(os.getenv("DEV_ADMIN_PASSWORD", "LocalDevAdmin@2026!")),
                     role="ADMIN",
                     account_status="ACTIVE"
                 )
@@ -167,6 +168,7 @@ def seed_database():
                     date_of_joining=emp_info["date_of_joining"],
                     employment_status="FULL_TIME",
                     account_status="ACTIVE",
+                    token_version=1,
                     token_secret=emp_info["token_secret"],
                     assigned_schedule_id=schedule_standard.id,
                     weekly_off_days="Sunday"
