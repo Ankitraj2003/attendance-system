@@ -174,7 +174,7 @@ class AttendanceRecordResponse(BaseModel):
 
 # Leaves
 class LeaveRequestCreate(BaseModel):
-    leave_type: str = Field(..., description="PL, CL, MEDICAL")
+    leave_type: str = Field(..., description="CL, MEDICAL")
     start_date: date
     end_date: date
     reason: str

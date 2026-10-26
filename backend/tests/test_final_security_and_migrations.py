@@ -288,7 +288,7 @@ def test_approved_leave_waives_checkin_checkout(db_session):
     leave_req = LeaveService.create_leave_request(
         db=db_session,
         employee=emp,
-        leave_type="SL",
+        leave_type="MEDICAL",
         start_date=today,
         end_date=today,
         reason="Doctor prescribed medical rest",
@@ -368,7 +368,7 @@ def test_pending_leave_message_until_decision(db_session):
     leave_req = LeaveService.create_leave_request(
         db=db_session,
         employee=emp,
-        leave_type="PL",
+        leave_type="CL",
         start_date=future_start,
         end_date=future_end,
         reason="Annual vacation",
@@ -381,7 +381,7 @@ def test_pending_leave_message_until_decision(db_session):
     data = portal_res.json()
     assert data["has_pending_leave"] is True
     assert "under review" in data["pending_leave_message"].lower()
-    assert data["pending_leave_details"]["leave_type"] == "PL"
+    assert data["pending_leave_details"]["leave_type"] == "CL"
 
     # 2. Once decided (e.g. APPROVED), pending flag clears
     admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
@@ -596,4 +596,24 @@ def test_alembic_fresh_and_existing_schema_migrations():
         mig.upgrade()
         post_tables = set(fresh_inspector.get_table_names())
         assert fresh_tables == post_tables
+
+
+def test_pl_leave_type_rejected_when_applying(db_session):
+    """Verify that applying for PL is rejected with 400 Bad Request; only CL and MEDICAL are permitted."""
+    emp = db_session.query(Employee).filter(Employee.employee_id == "EXP-101").first()
+    token = emp.token_secret
+
+    response = client.post(
+        f"/api/leaves/portal/{token}/submit",
+        data={
+            "leave_type": "PL",
+            "start_date": str(date.today()),
+            "end_date": str(date.today()),
+            "reason": "Requesting Privilege Leave"
+        },
+        files={"document": ("test.pdf", b"%PDF-1.4 sample content", "application/pdf")}
+    )
+    assert response.status_code == 400
+    assert "only casual leave (cl) and medical leave (medical) are available" in response.json()["detail"].lower()
+
 

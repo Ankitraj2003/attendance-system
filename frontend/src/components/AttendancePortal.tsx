@@ -39,7 +39,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
 
   // Leave Modal State
   const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
-  const [leaveType, setLeaveType] = useState<'PL' | 'CL' | 'MEDICAL'>('CL');
+  const [leaveType, setLeaveType] = useState<'CL' | 'MEDICAL'>('CL');
   const [leaveStartDate, setLeaveStartDate] = useState<string>('');
   const [leaveEndDate, setLeaveEndDate] = useState<string>('');
   const [leaveReason, setLeaveReason] = useState<string>('');
@@ -610,10 +610,9 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
             <form onSubmit={handleLeaveSubmit} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1.5">Leave Type *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {[
                     { id: 'CL', label: 'Casual Leave (CL)' },
-                    { id: 'PL', label: 'Privilege Leave (PL)' },
                     { id: 'MEDICAL', label: 'Medical Leave' },
                   ].map((t) => (
                     <button

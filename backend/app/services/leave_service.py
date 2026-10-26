@@ -91,6 +91,13 @@ class LeaveService:
                 detail="End date cannot be prior to start date."
             )
 
+        clean_leave_type = leave_type.upper().strip()
+        if clean_leave_type not in ["CL", "MEDICAL"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid leave type. Only Casual Leave (CL) and Medical Leave (MEDICAL) are available."
+            )
+
         if not attachment_file:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -104,7 +111,7 @@ class LeaveService:
 
         leave_req = LeaveRequest(
             employee_id=employee.employee_id,
-            leave_type=leave_type.upper(),
+            leave_type=clean_leave_type,
             start_date=start_date,
             end_date=end_date,
             reason=reason,
