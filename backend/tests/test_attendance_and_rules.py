@@ -212,10 +212,24 @@ def test_departments_crud():
     assert delete_res.status_code == 200
     assert delete_res.json()["id"] == dept_id
 
-    # Verify department no longer exists
+    # Test deleting by name and trailing slash with another test department
+    c2 = client.post("/api/departments", headers=headers, json={"name": "Temporary Dept"})
+    assert c2.status_code in [200, 201]
+    del_name_res = client.delete("/api/departments/Temporary%20Dept/", headers=headers)
+    assert del_name_res.status_code == 200
+
+    # Test fallback POST delete endpoint
+    c3 = client.post("/api/departments", headers=headers, json={"name": "Post Delete Dept"})
+    assert c3.status_code in [200, 201]
+    post_del_res = client.post("/api/departments/Post%20Delete%20Dept/delete", headers=headers)
+    assert post_del_res.status_code == 200
+
+    # Verify departments no longer exist
     get_res2 = client.get("/api/departments", headers=headers)
     remaining_names = [d["name"] for d in get_res2.json()]
     assert dept_name not in remaining_names
+    assert "Temporary Dept" not in remaining_names
+    assert "Post Delete Dept" not in remaining_names
 
 def test_delete_department_with_assigned_employees_blocked():
     login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})

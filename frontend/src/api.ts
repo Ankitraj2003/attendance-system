@@ -183,10 +183,20 @@ export const api = {
     });
   },
 
-  async deleteDepartment(departmentId: number) {
-    return request<{ message: string; id: number }>(`/departments/${departmentId}`, {
-      method: 'DELETE',
-    });
+  async deleteDepartment(departmentId: number | string) {
+    try {
+      return await request<{ message: string; id: number }>(`/departments/${departmentId}`, {
+        method: 'DELETE',
+      });
+    } catch (err: any) {
+      // Fallback for environments or proxies where DELETE is not routed or blocked
+      if (err.message && (err.message.includes('Not Found') || err.message.includes('404') || err.message.includes('Method Not Allowed') || err.message.includes('405'))) {
+        return await request<{ message: string; id: number }>(`/departments/${departmentId}/delete`, {
+          method: 'POST',
+        });
+      }
+      throw err;
+    }
   },
 
   // Leaves

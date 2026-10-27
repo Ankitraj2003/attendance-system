@@ -101,7 +101,7 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
       setDeletingDeptId(deptId);
       setDeptErrorMsg(null);
       setDeptSuccessMsg(null);
-      await api.deleteDepartment(deptId);
+      await api.deleteDepartment(deptId || deptName);
       setDeptSuccessMsg(`Department "${deptName}" removed successfully.`);
       await fetchDepartments();
       if (department === deptName) {
