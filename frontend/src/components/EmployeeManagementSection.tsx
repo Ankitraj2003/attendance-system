@@ -49,6 +49,9 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
   const [newDeptName, setNewDeptName] = useState<string>('');
   const [creatingDept, setCreatingDept] = useState<boolean>(false);
   const [deletingDeptId, setDeletingDeptId] = useState<number | null>(null);
+  const [editingDeptId, setEditingDeptId] = useState<number | null>(null);
+  const [editingDeptName, setEditingDeptName] = useState<string>('');
+  const [savingDeptId, setSavingDeptId] = useState<number | null>(null);
   const [deptErrorMsg, setDeptErrorMsg] = useState<string | null>(null);
   const [deptSuccessMsg, setDeptSuccessMsg] = useState<string | null>(null);
 
@@ -90,6 +93,48 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
       }
     } catch (err) {
       console.error('Failed to load departments', err);
+    }
+  };
+
+  const handleStartEditDept = (deptId: number, currentName: string) => {
+    setEditingDeptId(deptId);
+    setEditingDeptName(currentName);
+    setDeptErrorMsg(null);
+    setDeptSuccessMsg(null);
+  };
+
+  const handleCancelEditDept = () => {
+    setEditingDeptId(null);
+    setEditingDeptName('');
+  };
+
+  const handleSaveEditDept = async (deptId: number, oldName: string) => {
+    const trimmed = editingDeptName.trim();
+    if (!trimmed) {
+      setDeptErrorMsg('Department name cannot be empty');
+      return;
+    }
+    if (trimmed === oldName) {
+      handleCancelEditDept();
+      return;
+    }
+    try {
+      setSavingDeptId(deptId);
+      setDeptErrorMsg(null);
+      setDeptSuccessMsg(null);
+      await api.updateDepartment(deptId, trimmed);
+      setDeptSuccessMsg(`Department renamed to "${trimmed}" successfully.`);
+      await fetchDepartments();
+      if (department === oldName) {
+        setDepartment(trimmed);
+      }
+      handleCancelEditDept();
+      fetchEmployees();
+      setTimeout(() => setDeptSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setDeptErrorMsg(err.message || `Failed to update department "${oldName}"`);
+    } finally {
+      setSavingDeptId(null);
     }
   };
 
@@ -799,7 +844,7 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
               <span>Manage Departments</span>
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Add new departments or remove existing ones. Deletion is safely prevented if employees are currently assigned.
+              Add new departments, rename existing ones, or remove unused ones. Removal is safely prevented if employees are currently assigned.
             </p>
 
             {deptErrorMsg && (
@@ -841,23 +886,75 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
                 {departmentsData.length === 0 ? (
                   <p className="text-xs text-slate-400 italic">No departments configured.</p>
                 ) : (
-                  departmentsData.map((d) => (
-                    <div
-                      key={d.id}
-                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 transition-colors"
-                    >
-                      <span className="text-xs font-semibold text-slate-800">{d.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDepartment(d.id, d.name)}
-                        disabled={deletingDeptId === d.id}
-                        className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title={`Remove ${d.name} department`}
+                  departmentsData.map((d) => {
+                    const isEditing = editingDeptId === d.id;
+                    return (
+                      <div
+                        key={d.id}
+                        className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 transition-colors gap-2"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={editingDeptName}
+                              onChange={(e) => setEditingDeptName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveEditDept(d.id, d.name);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEditDept();
+                                }
+                              }}
+                              autoFocus
+                              className="glass-input flex-1 px-2 py-1 text-xs font-semibold text-slate-800 rounded-lg border border-[#00A3E0]/40 focus:outline-none focus:ring-1 focus:ring-[#00A3E0]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEditDept(d.id, d.name)}
+                              disabled={savingDeptId === d.id}
+                              className="cursor-pointer p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              title="Save changes"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEditDept}
+                              className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 transition-colors"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-xs font-semibold text-slate-800 truncate flex-1">{d.name}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditDept(d.id, d.name)}
+                                className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-[#00A3E0] hover:bg-cyan-50 transition-colors"
+                                title={`Rename ${d.name} department`}
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDepartment(d.id, d.name)}
+                                disabled={deletingDeptId === d.id}
+                                className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title={`Remove ${d.name} department`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>

@@ -207,6 +207,16 @@ def test_departments_crud():
     assert created_dept["name"] == dept_name
     dept_id = created_dept["id"]
 
+    # Test modifying / renaming the created department
+    rename_res = client.put(f"/api/departments/{dept_id}", headers=headers, json={"name": "DevOps & SRE"})
+    assert rename_res.status_code == 200
+    assert rename_res.json()["name"] == "DevOps & SRE"
+
+    # Test modifying by name string and fallback POST
+    rename_res2 = client.post("/api/departments/DevOps%20&%20SRE/update", headers=headers, json={"name": "DevOps & Platform Engineering"})
+    assert rename_res2.status_code == 200
+    assert rename_res2.json()["name"] == "DevOps & Platform Engineering"
+
     # Delete the created department
     delete_res = client.delete(f"/api/departments/{dept_id}", headers=headers)
     assert delete_res.status_code == 200

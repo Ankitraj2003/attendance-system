@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from app.database import get_db
 from app.models import Department, User, AuditLog, Employee
-from app.schemas import DepartmentCreate, DepartmentResponse
+from app.schemas import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from app.auth import get_current_admin
 
 router = APIRouter(prefix="/api/departments", tags=["Departments"])
@@ -53,6 +53,68 @@ def create_department(
     db.commit()
     db.refresh(dept)
     return dept
+
+def _perform_update_department(
+    identifier: str,
+    payload: DepartmentUpdate,
+    current_admin: User,
+    db: Session
+):
+    clean_id = identifier.strip()
+    dept = None
+    if clean_id.isdigit():
+        dept = db.query(Department).filter(Department.id == int(clean_id)).first()
+    if not dept:
+        dept = db.query(Department).filter(Department.name.ilike(clean_id)).first()
+
+    if not dept:
+        raise HTTPException(status_code=404, detail=f"Department '{clean_id}' not found")
+
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="Department name cannot be empty")
+
+    old_name = dept.name
+    if new_name.lower() != old_name.lower():
+        existing = db.query(Department).filter(Department.name.ilike(new_name)).first()
+        if existing and existing.id != dept.id:
+            raise HTTPException(status_code=400, detail=f"Department '{new_name}' already exists")
+
+    dept.name = new_name
+
+    # Cascade department rename to all employees currently assigned to this department
+    db.query(Employee).filter(Employee.department == old_name).update(
+        {Employee.department: new_name}, synchronize_session=False
+    )
+
+    audit = AuditLog(
+        actor=current_admin.username,
+        actor_role="ADMIN",
+        action="DEPARTMENT_UPDATED",
+        entity_type="DEPARTMENT",
+        entity_id=str(dept.id),
+        before_values=f'{{"name": "{old_name}"}}',
+        after_values=f'{{"name": "{new_name}"}}',
+        reason=f"Renamed department from '{old_name}' to '{new_name}'"
+    )
+    db.add(audit)
+    db.commit()
+    db.refresh(dept)
+    return dept
+
+@router.put("/{department_identifier}", response_model=DepartmentResponse)
+@router.put("/{department_identifier}/", response_model=DepartmentResponse)
+@router.patch("/{department_identifier}", response_model=DepartmentResponse)
+@router.patch("/{department_identifier}/", response_model=DepartmentResponse)
+@router.post("/{department_identifier}/update", response_model=DepartmentResponse)
+@router.post("/{department_identifier}/update/", response_model=DepartmentResponse)
+def update_department(
+    department_identifier: str,
+    payload: DepartmentUpdate,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    return _perform_update_department(department_identifier, payload, current_admin, db)
 
 def _perform_delete_department(
     identifier: str,

@@ -183,6 +183,23 @@ export const api = {
     });
   },
 
+  async updateDepartment(departmentId: number | string, name: string) {
+    try {
+      return await request<{ id: number; name: string }>(`/departments/${departmentId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name }),
+      });
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Not Found') || err.message.includes('404') || err.message.includes('Method Not Allowed') || err.message.includes('405'))) {
+        return await request<{ id: number; name: string }>(`/departments/${departmentId}/update`, {
+          method: 'POST',
+          body: JSON.stringify({ name }),
+        });
+      }
+      throw err;
+    }
+  },
+
   async deleteDepartment(departmentId: number | string) {
     try {
       return await request<{ message: string; id: number }>(`/departments/${departmentId}`, {
