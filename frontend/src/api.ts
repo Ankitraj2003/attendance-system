@@ -183,6 +183,12 @@ export const api = {
     });
   },
 
+  async deleteDepartment(departmentId: number) {
+    return request<{ message: string; id: number }>(`/departments/${departmentId}`, {
+      method: 'DELETE',
+    });
+  },
+
   // Leaves
   async getLeaves(params: Record<string, any> = {}) {
     const q = new URLSearchParams();

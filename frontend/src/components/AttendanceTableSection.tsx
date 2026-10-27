@@ -197,7 +197,7 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
   const totalPages = Math.ceil(total / limit) || 1;
 
   const formatIST = (timestamp?: string) => {
-    if (!timestamp) return '—';
+    if (!timestamp) return '-';
     try {
       const d = new Date(timestamp);
       return d.toLocaleTimeString('en-IN', {
@@ -207,7 +207,7 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
         hour12: true,
       });
     } catch {
-      return '—';
+      return '-';
     }
   };
 
@@ -420,7 +420,7 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
                     <td className="py-3 px-4 font-mono text-slate-700">{formatIST(r.check_in_timestamp)}</td>
                     <td className="py-3 px-4 font-mono text-slate-700">{formatIST(r.check_out_timestamp)}</td>
                     <td className="py-3 px-4 text-center font-mono font-bold text-slate-800">
-                      {r.recorded_working_duration ? `${r.recorded_working_duration} h` : '—'}
+                      {r.recorded_working_duration ? `${r.recorded_working_duration} h` : '-'}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -645,7 +645,7 @@ export const AttendanceTableSection: React.FC<AttendanceTableSectionProps> = ({
                 >
                   {employeesList.map((emp) => (
                     <option key={emp.employee_id} value={emp.employee_id}>
-                      {emp.name} ({emp.employee_id}) — {emp.department}
+                      {emp.name} ({emp.employee_id}) - {emp.department}
                     </option>
                   ))}
                 </select>

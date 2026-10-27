@@ -105,7 +105,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
   };
 
   const formatIST = (timestamp?: string) => {
-    if (!timestamp) return 'â€”';
+    if (!timestamp) return '-';
     try {
       return new Date(timestamp).toLocaleTimeString('en-IN', {
         timeZone: 'Asia/Kolkata',
@@ -114,7 +114,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
         hour12: true,
       });
     } catch {
-      return 'â€”';
+      return '-';
     }
   };
 
@@ -377,7 +377,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
                         <td className="py-2 font-mono text-slate-600">{formatIST(r.check_in_timestamp)}</td>
                         <td className="py-2 font-mono text-slate-600">{formatIST(r.check_out_timestamp)}</td>
                         <td className="py-2 text-right font-mono font-bold text-slate-800">
-                          {r.recorded_working_duration ? `${r.recorded_working_duration}h` : 'â€”'}
+                          {r.recorded_working_duration ? `${r.recorded_working_duration}h` : '-'}
                         </td>
                       </tr>
                     ))}
@@ -440,7 +440,7 @@ export const IndividualEmployeeDashboard: React.FC<IndividualEmployeeDashboardPr
                                 <span>Doc</span>
                               </button>
                             ) : (
-                              'â€”'
+                              '-'
                             )}
                           </td>
                         </tr>

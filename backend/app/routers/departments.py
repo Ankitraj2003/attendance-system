@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.models import Department, User, AuditLog
+from app.models import Department, User, AuditLog, Employee
 from app.schemas import DepartmentCreate, DepartmentResponse
 from app.auth import get_current_admin
 
@@ -51,3 +51,37 @@ def create_department(
     db.commit()
     db.refresh(dept)
     return dept
+
+@router.delete("/{department_id}", status_code=status.HTTP_200_OK)
+def delete_department(
+    department_id: int,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    dept = db.query(Department).filter(Department.id == department_id).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    assigned_count = db.query(Employee).filter(Employee.department == dept.name).count()
+    if assigned_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot remove department '{dept.name}' because {assigned_count} employee(s) are currently assigned to it. Please reassign them first."
+        )
+
+    dept_name = dept.name
+    db.delete(dept)
+
+    audit = AuditLog(
+        actor=current_admin.username,
+        actor_role="ADMIN",
+        action="DEPARTMENT_DELETED",
+        entity_type="DEPARTMENT",
+        entity_id=str(department_id),
+        before_values=f'{{"name": "{dept_name}"}}',
+        reason=f"Deleted department {dept_name}"
+    )
+    db.add(audit)
+    db.commit()
+
+    return {"message": f"Department '{dept_name}' deleted successfully", "id": department_id}

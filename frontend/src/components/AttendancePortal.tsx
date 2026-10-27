@@ -321,9 +321,9 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
               <div>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Shift Timing</span>
                 <span className="text-xs font-semibold text-slate-700 mt-0.5 block">
-                  {portalData.schedule_start} – {portalData.schedule_end}
+                  {portalData.schedule_start} - {portalData.schedule_end}
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium">10:00 AM – 7:00 PM (15m grace)</span>
+                <span className="text-[10px] text-slate-400 font-medium">10:00 AM - 7:00 PM (15m grace)</span>
               </div>
               <div>
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Server Date</span>
@@ -352,7 +352,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                   </div>
                   <div className="pt-2">
                     <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-600 text-white shadow-xs">
-                      ✓ Leave Approved — Attendance Waived
+                      ✓ Leave Approved - Attendance Waived
                     </span>
                   </div>
                 </div>
@@ -431,7 +431,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                     <div>
                       <span className="text-slate-500 block text-[10px] uppercase font-semibold">Check-Out Time:</span>
                       <span className="font-bold text-slate-800 text-sm">
-                        {isCheckedOut ? todayRec?.check_out : '— Pending Check-Out —'}
+                        {isCheckedOut ? todayRec?.check_out : '- Pending Check-Out -'}
                       </span>
                       {isCheckedOut && todayRec?.duration !== undefined && (
                         <span className="block text-[11px] text-emerald-700 font-semibold mt-0.5">
@@ -577,7 +577,7 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                           <td className="py-2.5 font-mono text-slate-600">{r.check_in}</td>
                           <td className="py-2.5 font-mono text-slate-600">{r.check_out}</td>
                           <td className="py-2.5 text-right font-mono font-semibold text-slate-700">
-                            {r.duration > 0 ? `${r.duration} hrs` : '—'}
+                            {r.duration > 0 ? `${r.duration} hrs` : '-'}
                           </td>
                         </tr>
                       ))

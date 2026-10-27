@@ -1,4 +1,8 @@
 import os
+os.environ["TESTING"] = "1"
+os.environ["ENVIRONMENT"] = "development"
+os.environ["DEV_ADMIN_PASSWORD"] = "LocalDevAdmin@2026!"
+os.environ["SECRET_KEY"] = "ci-test-secret-key-minimum-32-chars-long-strictly-for-testing"
 import io
 import pytest
 from datetime import date, datetime, timezone, timedelta
@@ -199,7 +203,31 @@ def test_departments_crud():
     dept_name = "DevOps & Cloud Engineering"
     create_res = client.post("/api/departments", headers=headers, json={"name": dept_name})
     assert create_res.status_code in [200, 201]
-    assert create_res.json()["name"] == dept_name
+    created_dept = create_res.json()
+    assert created_dept["name"] == dept_name
+    dept_id = created_dept["id"]
+
+    # Delete the created department
+    delete_res = client.delete(f"/api/departments/{dept_id}", headers=headers)
+    assert delete_res.status_code == 200
+    assert delete_res.json()["id"] == dept_id
+
+    # Verify department no longer exists
+    get_res2 = client.get("/api/departments", headers=headers)
+    remaining_names = [d["name"] for d in get_res2.json()]
+    assert dept_name not in remaining_names
+
+def test_delete_department_with_assigned_employees_blocked():
+    login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    depts = client.get("/api/departments", headers=headers).json()
+    eng_dept = next((d for d in depts if d["name"] == "Engineering"), None)
+    if eng_dept:
+        del_res = client.delete(f"/api/departments/{eng_dept['id']}", headers=headers)
+        assert del_res.status_code == 400
+        assert "cannot remove department" in del_res.json()["detail"].lower()
 
 def test_employee_update():
     login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})

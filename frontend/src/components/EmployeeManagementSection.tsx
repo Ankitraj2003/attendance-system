@@ -18,7 +18,8 @@ import {
   LogOut,
   Clock,
   Edit3,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { api } from '../api';
 import { Employee } from '../types';
@@ -43,10 +44,13 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
   const [departmentsList, setDepartmentsList] = useState<string[]>([
     'Engineering', 'Product & Design', 'Marketing', 'Human Resources', 'Operations'
   ]);
+  const [departmentsData, setDepartmentsData] = useState<{ id: number; name: string }[]>([]);
   const [showAddDeptModal, setShowAddDeptModal] = useState<boolean>(false);
   const [newDeptName, setNewDeptName] = useState<string>('');
   const [creatingDept, setCreatingDept] = useState<boolean>(false);
+  const [deletingDeptId, setDeletingDeptId] = useState<number | null>(null);
   const [deptErrorMsg, setDeptErrorMsg] = useState<string | null>(null);
+  const [deptSuccessMsg, setDeptSuccessMsg] = useState<string | null>(null);
 
   // New Employee Modal
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -81,10 +85,33 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
     try {
       const depts = await api.getDepartments();
       if (depts && depts.length > 0) {
+        setDepartmentsData(depts);
         setDepartmentsList(depts.map((d: any) => d.name));
       }
     } catch (err) {
       console.error('Failed to load departments', err);
+    }
+  };
+
+  const handleDeleteDepartment = async (deptId: number, deptName: string) => {
+    if (!window.confirm(`Are you sure you want to remove the "${deptName}" department?`)) {
+      return;
+    }
+    try {
+      setDeletingDeptId(deptId);
+      setDeptErrorMsg(null);
+      setDeptSuccessMsg(null);
+      await api.deleteDepartment(deptId);
+      setDeptSuccessMsg(`Department "${deptName}" removed successfully.`);
+      await fetchDepartments();
+      if (department === deptName) {
+        setDepartment('ALL');
+      }
+      setTimeout(() => setDeptSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setDeptErrorMsg(err.message || `Failed to delete department "${deptName}"`);
+    } finally {
+      setDeletingDeptId(null);
     }
   };
 
@@ -115,10 +142,12 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
     try {
       setCreatingDept(true);
       setDeptErrorMsg(null);
+      setDeptSuccessMsg(null);
       await api.createDepartment(newDeptName.trim());
       await fetchDepartments();
       setNewDeptName('');
-      setShowAddDeptModal(false);
+      setDeptSuccessMsg(`Department "${newDeptName.trim()}" created successfully.`);
+      setTimeout(() => setDeptSuccessMsg(null), 3500);
     } catch (err: any) {
       setDeptErrorMsg(err.message || 'Failed to create department');
     } finally {
@@ -261,17 +290,18 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
             ))}
           </select>
 
-          {/* Add Department Button */}
+          {/* Manage Departments Button */}
           <button
             onClick={() => {
               setShowAddDeptModal(true);
               setDeptErrorMsg(null);
+              setDeptSuccessMsg(null);
             }}
             className="cursor-pointer px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/80 hover:bg-slate-100 text-[#16194F] border border-slate-200 shadow-2xs transition-colors flex items-center gap-1.5 shrink-0"
-            title="Create a new department"
+            title="Manage departments (Add or Remove)"
           >
             <Building className="w-3.5 h-3.5 text-[#00A3E0]" />
-            <span>+ Department</span>
+            <span>Departments</span>
           </button>
 
           {/* View Mode Toggle: Grid vs List */}
@@ -381,7 +411,7 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-cyan-600 shrink-0" />
-                    <span>Shift: 10:00 AM â€“ 7:00 PM (Sunday Off)</span>
+                    <span>Shift: 10:00 AM - 7:00 PM (Sunday Off)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
@@ -510,7 +540,7 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
                       <div className="text-[11px] text-slate-500">{emp.designation}</div>
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-700">
-                      <div>10:00 AM â€“ 7:00 PM</div>
+                      <div>10:00 AM - 7:00 PM</div>
                       <div className="text-[10px] text-slate-400 font-sans">Sunday Off</div>
                     </td>
                     <td className="py-3 px-4">
@@ -749,12 +779,16 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
         </div>
       )}
 
-      {/* Add Department Modal */}
+      {/* Manage Departments Modal */}
       {showAddDeptModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-          <div className="glass-panel w-full max-w-sm rounded-2xl p-6 border border-white/90 shadow-2xl relative">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-white/90 shadow-2xl relative">
             <button
-              onClick={() => setShowAddDeptModal(false)}
+              onClick={() => {
+                setShowAddDeptModal(false);
+                setDeptErrorMsg(null);
+                setDeptSuccessMsg(null);
+              }}
               className="cursor-pointer absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600"
             >
               <X className="w-5 h-5" />
@@ -762,46 +796,85 @@ export const EmployeeManagementSection: React.FC<EmployeeManagementSectionProps>
 
             <h3 className="text-base font-bold text-[#16194F] mb-1 flex items-center gap-2">
               <Building className="w-5 h-5 text-[#00A3E0]" />
-              <span>Create Department</span>
+              <span>Manage Departments</span>
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Add a new department. It will automatically reflect across filters and employee profiles.
+              Add new departments or remove existing ones. Deletion is safely prevented if employees are currently assigned.
             </p>
 
             {deptErrorMsg && (
-              <div className="mb-4 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs">{deptErrorMsg}</div>
+              <div className="mb-4 p-2.5 rounded-lg bg-red-50 text-red-700 text-xs border border-red-200">{deptErrorMsg}</div>
+            )}
+            {deptSuccessMsg && (
+              <div className="mb-4 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 text-xs border border-emerald-200">{deptSuccessMsg}</div>
             )}
 
-            <form onSubmit={handleCreateDepartment} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Department Name *</label>
+            {/* Add Department Form */}
+            <form onSubmit={handleCreateDepartment} className="space-y-3 mb-6">
+              <label className="text-xs font-semibold text-slate-700 block">Add New Department</label>
+              <div className="flex gap-2">
                 <input
                   type="text"
                   required
                   placeholder="e.g. Quality Assurance"
                   value={newDeptName}
                   onChange={(e) => setNewDeptName(e.target.value)}
-                  className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium"
+                  className="glass-input flex-1 px-3 py-2 rounded-xl text-xs font-medium"
                 />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddDeptModal(false)}
-                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
                 <button
                   type="submit"
                   disabled={creatingDept}
-                  className="cursor-pointer px-5 py-2 rounded-xl text-xs font-bold bg-[#16194F] hover:bg-[#1E2568] text-white shadow-xs"
+                  className="cursor-pointer px-4 py-2 rounded-xl text-xs font-bold bg-[#16194F] hover:bg-[#1E2568] text-white shadow-xs shrink-0 flex items-center gap-1"
                 >
-                  {creatingDept ? 'Creating...' : 'Create Department'}
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{creatingDept ? 'Adding...' : 'Add'}</span>
                 </button>
               </div>
             </form>
+
+            {/* Existing Departments List with Remove Option */}
+            <div>
+              <label className="text-xs font-semibold text-slate-700 block mb-2">
+                Existing Departments ({departmentsData.length})
+              </label>
+              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                {departmentsData.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">No departments configured.</p>
+                ) : (
+                  departmentsData.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50/80 hover:bg-slate-100/80 border border-slate-200/60 transition-colors"
+                    >
+                      <span className="text-xs font-semibold text-slate-800">{d.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDepartment(d.id, d.name)}
+                        disabled={deletingDeptId === d.id}
+                        className="cursor-pointer p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title={`Remove ${d.name} department`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 mt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddDeptModal(false);
+                  setDeptErrorMsg(null);
+                  setDeptSuccessMsg(null);
+                }}
+                className="cursor-pointer px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -89,7 +89,7 @@ export const AuditLogsSection: React.FC = () => {
                     <td className="py-3 px-4 font-medium text-slate-700">{log.entity_type}</td>
                     <td className="py-3 px-4 font-mono font-bold text-slate-800">{log.entity_id}</td>
                     <td className="py-3 px-4 text-slate-600 max-w-sm truncate" title={log.reason || ''}>
-                      {log.reason || '—'}
+                      {log.reason || '-'}
                     </td>
                   </tr>
                 ))
