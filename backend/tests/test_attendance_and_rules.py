@@ -122,10 +122,10 @@ def test_leave_submission_with_attachment():
 
     files = {"document": ("test_cert.pdf", fake_pdf, "application/pdf")}
     data = {
-        "leave_type": "CL",
+        "leave_type": "MEDICAL",
         "start_date": tomorrow,
         "end_date": day_after,
-        "reason": "Family function attending out of station"
+        "reason": "Hospitalization recovery with certificate"
     }
 
     res = client.post(f"/api/leaves/portal/{token}/submit", data=data, files=files)
@@ -133,6 +133,38 @@ def test_leave_submission_with_attachment():
     res_data = res.json()
     assert res_data["status"] == "PENDING"
     assert "request_id" in res_data
+
+def test_cl_leave_submission_without_attachment_succeeds():
+    token = "token_vikram_singh_exp105_secure"
+    d1 = (date.today() + timedelta(days=7)).isoformat()
+    d2 = (date.today() + timedelta(days=8)).isoformat()
+
+    data = {
+        "leave_type": "CL",
+        "start_date": d1,
+        "end_date": d2,
+        "reason": "Family function casual leave"
+    }
+    res = client.post(f"/api/leaves/portal/{token}/submit", data=data)
+    assert res.status_code == 200
+    res_data = res.json()
+    assert res_data["status"] == "PENDING"
+    assert "request_id" in res_data
+
+def test_medical_leave_submission_without_attachment_fails():
+    token = "token_vikram_singh_exp105_secure"
+    d1 = (date.today() + timedelta(days=9)).isoformat()
+    d2 = (date.today() + timedelta(days=10)).isoformat()
+
+    data = {
+        "leave_type": "MEDICAL",
+        "start_date": d1,
+        "end_date": d2,
+        "reason": "Medical leave without attachment"
+    }
+    res = client.post(f"/api/leaves/portal/{token}/submit", data=data)
+    assert res.status_code == 400
+    assert "supporting document is mandatory for medical leave" in res.json()["detail"].lower()
 
 def test_admin_reports_excel_and_csv():
     login_res = client.post("/api/auth/login", data={"username": "admin", "password": ADMIN_PASSWORD})

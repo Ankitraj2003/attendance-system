@@ -98,16 +98,24 @@ class LeaveService:
                 detail="Invalid leave type. Only Casual Leave (CL) and Medical Leave (MEDICAL) are available."
             )
 
-        if not attachment_file:
+        has_file = bool(attachment_file and getattr(attachment_file, "filename", None) and str(attachment_file.filename).strip())
+
+        if clean_leave_type == "MEDICAL" and not has_file:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Supporting document is mandatory for all leave/absence requests."
+                detail="Supporting document is mandatory for Medical Leave requests."
             )
 
-        # Save attachment safely
-        orig_name, stored_name, mime_type, file_size = validate_and_save_attachment(
-            attachment_file, employee.employee_id
-        )
+        orig_name = None
+        stored_name = None
+        mime_type = None
+        file_size = 0
+
+        # Save attachment safely if provided (mandatory for MEDICAL, optional for CL)
+        if has_file:
+            orig_name, stored_name, mime_type, file_size = validate_and_save_attachment(
+                attachment_file, employee.employee_id
+            )
 
         leave_req = LeaveRequest(
             employee_id=employee.employee_id,
@@ -120,16 +128,17 @@ class LeaveService:
         db.add(leave_req)
         db.flush()
 
-        attachment = AttendanceAttachment(
-            leave_request_id=leave_req.id,
-            employee_id=employee.employee_id,
-            original_filename=orig_name,
-            stored_filename=stored_name,
-            mime_type=mime_type,
-            file_size=file_size,
-            storage_path=os.path.join(settings.STORAGE_DIR, stored_name)
-        )
-        db.add(attachment)
+        if stored_name:
+            attachment = AttendanceAttachment(
+                leave_request_id=leave_req.id,
+                employee_id=employee.employee_id,
+                original_filename=orig_name,
+                stored_filename=stored_name,
+                mime_type=mime_type,
+                file_size=file_size,
+                storage_path=os.path.join(settings.STORAGE_DIR, stored_name)
+            )
+            db.add(attachment)
 
         # Mark corresponding dates as pending absence if single day or span
         curr = start_date

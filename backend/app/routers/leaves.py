@@ -19,7 +19,7 @@ async def submit_leave(
     start_date: date = Form(...),
     end_date: date = Form(...),
     reason: str = Form(...),
-    document: UploadFile = File(...),
+    document: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db)
 ):
     employee = get_employee_by_token(token, db)

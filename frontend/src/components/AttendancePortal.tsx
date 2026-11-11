@@ -107,8 +107,8 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
 
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leaveFile) {
-      setErrorMsg('Please upload a supporting document (PDF, PNG, or JPG).');
+    if (leaveType === 'MEDICAL' && !leaveFile) {
+      setErrorMsg('Please upload a supporting document (PDF, PNG, or JPG) for Medical Leave.');
       return;
     }
     try {
@@ -120,7 +120,9 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
       formData.append('start_date', leaveStartDate);
       formData.append('end_date', leaveEndDate);
       formData.append('reason', leaveReason);
-      formData.append('document', leaveFile);
+      if (leaveType === 'MEDICAL' && leaveFile) {
+        formData.append('document', leaveFile);
+      }
       const res = await api.portalSubmitLeave(initialToken, formData);
       setSuccessMsg(res.message || 'Leave request submitted for administrative review.');
       setShowLeaveModal(false);
@@ -605,7 +607,9 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
               <span>Submit Leave Request / Mark Absent</span>
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              All requests require a supporting document and administrator approval.
+              {leaveType === 'MEDICAL'
+                ? 'Medical Leave requires a supporting document and administrator approval.'
+                : 'All requests require administrator approval.'}
             </p>
             <form onSubmit={handleLeaveSubmit} className="space-y-4">
               <div>
@@ -618,7 +622,12 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setLeaveType(t.id as any)}
+                      onClick={() => {
+                        setLeaveType(t.id as any);
+                        if (t.id !== 'MEDICAL') {
+                          setLeaveFile(null);
+                        }
+                      }}
                       className={`cursor-pointer py-2 px-3 rounded-xl text-xs font-bold border text-center transition-all ${
                         leaveType === t.id
                           ? 'bg-[#16194F] text-white border-[#16194F]'
@@ -663,27 +672,29 @@ export const AttendancePortal: React.FC<AttendancePortalProps> = ({
                   className="glass-input w-full px-3 py-2 rounded-xl text-xs font-medium"
                 />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Supporting Document * (PDF, JPG, PNG &lt; 5MB)
-                </label>
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-amber-400 transition-colors bg-white/50">
-                  <input
-                    type="file"
-                    required
-                    accept=".pdf,.png,.jpg,.jpeg"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) setLeaveFile(e.target.files[0]);
-                    }}
-                    className="cursor-pointer w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200"
-                  />
-                  {leaveFile && (
-                    <p className="mt-2 text-[11px] font-semibold text-emerald-600">
-                      Selected: {leaveFile.name} ({(leaveFile.size / 1024).toFixed(1)} KB)
-                    </p>
-                  )}
+              {leaveType === 'MEDICAL' && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Supporting Document * (PDF, JPG, PNG &lt; 5MB)
+                  </label>
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-amber-400 transition-colors bg-white/50">
+                    <input
+                      type="file"
+                      required
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) setLeaveFile(e.target.files[0]);
+                      }}
+                      className="cursor-pointer w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200"
+                    />
+                    {leaveFile && (
+                      <p className="mt-2 text-[11px] font-semibold text-emerald-600">
+                        Selected: {leaveFile.name} ({(leaveFile.size / 1024).toFixed(1)} KB)
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
