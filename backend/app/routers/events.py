@@ -1,12 +1,12 @@
 import asyncio
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from app.services.event_service import broadcaster
 
 router = APIRouter(prefix="/api/events", tags=["Real-time Events"])
 
 @router.get("/stream")
-async def event_stream():
+async def event_stream(request: Request):
     queue = await broadcaster.subscribe()
 
     async def event_generator():
@@ -14,6 +14,8 @@ async def event_stream():
             # Yield initial connection ping
             yield "data: {\"event\": \"CONNECTED\", \"message\": \"SSE stream initialized\"}\n\n"
             while True:
+                if await request.is_disconnected():
+                    break
                 # Wait for next event or send keepalive ping every 15s
                 try:
                     msg = await asyncio.wait_for(queue.get(), timeout=15.0)

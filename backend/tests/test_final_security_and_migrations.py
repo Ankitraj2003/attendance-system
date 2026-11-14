@@ -617,3 +617,60 @@ def test_pl_leave_type_rejected_when_applying(db_session):
     assert "only casual leave (cl) and medical leave (medical) are available" in response.json()["detail"].lower()
 
 
+def test_attachment_path_traversal_protection(db_session, tmp_path):
+    """Verify attachment downloads reject traversal outside STORAGE_DIR and sanitize headers."""
+    import os
+    from app.models import AttendanceAttachment
+    from app.config import settings
+
+    admin = db_session.query(User).filter(User.username == ADMIN_USERNAME).first()
+    admin_token = create_access_token({"sub": ADMIN_USERNAME, "role": "ADMIN", "token_version": admin.token_version})
+
+    # 1. Attachment pointing outside storage directory should 404
+    outside_file = tmp_path / "secret.txt"
+    outside_file.write_text("classified")
+    bad_attach = AttendanceAttachment(
+        employee_id="EXP-101",
+        original_filename="secret.txt\r\nInjected: Header",
+        stored_filename="secret.txt",
+        mime_type="text/plain",
+        file_size=10,
+        storage_path=str(outside_file)
+    )
+    db_session.add(bad_attach)
+    db_session.commit()
+    db_session.refresh(bad_attach)
+
+    resp = client.get(
+        f"/api/attachments/{bad_attach.id}/download",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()
+
+    # 2. Legitimate attachment inside STORAGE_DIR should sanitize filename
+    os.makedirs(settings.STORAGE_DIR, exist_ok=True)
+    legit_path = os.path.join(settings.STORAGE_DIR, f"test_{bad_attach.id}.txt")
+    with open(legit_path, "w") as f:
+        f.write("legit content")
+
+    try:
+        bad_attach.storage_path = legit_path
+        bad_attach.original_filename = 'doc"with\r\nnewlines.txt'
+        db_session.commit()
+
+        resp_ok = client.get(
+            f"/api/attachments/{bad_attach.id}/download",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert resp_ok.status_code == 200
+        content_disp = resp_ok.headers.get("content-disposition", "")
+        assert "\r" not in content_disp
+        assert "\n" not in content_disp
+        assert 'filename="doc_with__newlines.txt"' in content_disp or 'doc_with__newlines.txt' in content_disp
+    finally:
+        if os.path.exists(legit_path):
+            os.remove(legit_path)
+
+
+

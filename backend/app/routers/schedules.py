@@ -29,7 +29,7 @@ def create_schedule(
     existing = db.query(WorkSchedule).filter(WorkSchedule.schedule_name == payload.schedule_name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Schedule with this name already exists")
-    sched = WorkSchedule(**payload.dict())
+    sched = WorkSchedule(**payload.model_dump())
     db.add(sched)
     db.commit()
     db.refresh(sched)

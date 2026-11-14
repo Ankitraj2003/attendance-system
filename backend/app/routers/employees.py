@@ -199,11 +199,9 @@ def get_individual_employee_dashboard(
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # Default to past 30 days if no range specified
+    # Default to current month if no range specified
     end = end_date or date.today()
-    start = start_date or (end - (date.today().replace(day=1) - date.today().replace(day=1))) # or 30 days
-    if not start_date:
-        start = end.replace(day=1) # start of current month
+    start = start_date or end.replace(day=1)
 
     # Attendance records
     records = db.query(AttendanceRecord).filter(

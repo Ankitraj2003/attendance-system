@@ -7,7 +7,8 @@ class EventBroadcaster:
         self._listeners: Set[asyncio.Queue] = set()
 
     async def subscribe(self) -> asyncio.Queue:
-        queue = asyncio.Queue()
+        # Bounded queue (max 100) prevents memory leaks if a client stalls
+        queue = asyncio.Queue(maxsize=100)
         self._listeners.add(queue)
         return queue
 
@@ -20,7 +21,13 @@ class EventBroadcaster:
         payload = json.dumps({"event": event_type, "data": data})
         for queue in list(self._listeners):
             try:
-                await queue.put(payload)
+                # Discard oldest message if consumer has fallen behind
+                if queue.full():
+                    try:
+                        queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        pass
+                queue.put_nowait(payload)
             except Exception:
                 self.unsubscribe(queue)
 

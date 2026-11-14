@@ -1,4 +1,5 @@
 import os
+import re
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import AttendanceAttachment, User
 from app.auth import get_current_admin
+from app.config import settings
 
 router = APIRouter(prefix="/api/attachments", tags=["Attachments"])
 
@@ -19,12 +21,19 @@ def download_attachment(
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment record not found")
 
-    if not os.path.exists(attachment.storage_path):
+    storage_root = os.path.abspath(settings.STORAGE_DIR)
+    file_path = os.path.abspath(attachment.storage_path)
+
+    # Ensure path traversal cannot escape the configured storage directory
+    if not file_path.startswith(storage_root) or not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="Physical document not found on server")
 
+    # Sanitize download filename for Content-Disposition header against CR/LF and quotes
+    safe_filename = re.sub(r'[\r\n"]', '_', attachment.original_filename or f"attachment_{attachment_id}")
+
     return FileResponse(
-        path=attachment.storage_path,
+        path=file_path,
         media_type=attachment.mime_type or "application/octet-stream",
-        filename=attachment.original_filename,
+        filename=safe_filename,
         content_disposition_type="inline",
     )
